@@ -1,17 +1,25 @@
 import { useMemo, useState } from "react";
 import { buildTree, sanitizePlaces } from "../../../src/bracket-tree.ts";
-import { bracketOf, emptyPlaces, PLACE_LABELS, PLACES, picksFromPlaces, resultFromPlaces, type Places } from "../../../src/model.ts";
+import { bracketOf, emptyPlaces, PLACE_LABELS, PLACES, picksFromPlaces, resultFromPlaces, type DivisionDoc, type PredictionDoc, type Places } from "../../../src/model.ts";
 import { scorePrediction, validatePrediction } from "../../../src/prediction.ts";
 import { flagOf } from "../../../src/flags.ts";
 import { BracketSheet } from "../components/BracketSheet.tsx";
 import { PicksSummary } from "../components/PicksSummary.tsx";
-import { getCompetition, getDivision, getPrediction, savePrediction } from "../data.ts";
+import { getCompetition, getDivision, getPrediction, listDivisions, myPredictions, savePrediction, type WithId } from "../data.ts";
 import { errorMessage, formatCountdown, formatDay, formatLocalTime, formatPoints } from "../format.ts";
 import { Link, usePath } from "../router.tsx";
 import { useSession } from "../session.tsx";
 import { useAsync, useNow } from "../useAsync.ts";
 
 const samePlaces = (a: Places, b: Places) => PLACES.every((p) => [...a[p]].sort().join() === [...b[p]].sort().join());
+
+/** Division suivante dans l'ordre de la compétition : d'abord une encore ouverte et sans pronostic, sinon la suivante tout court. */
+function nextDivision(divisions: WithId<DivisionDoc>[], mine: Map<string, PredictionDoc>, did: string, now: number) {
+  const index = divisions.findIndex((d) => d.id === did);
+  const after = [...divisions.slice(index + 1), ...divisions.slice(0, Math.max(0, index))];
+  const todo = after.find((d) => d.status === "open" && d.lockAt.getTime() > now && !mine.has(d.id));
+  return todo ? { division: todo, todo: true } : divisions[index + 1] ? { division: divisions[index + 1], todo: false } : null;
+}
 
 export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const { user } = useSession();
@@ -20,10 +28,12 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const [draft, setDraft] = useState<Places | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const { data, error, loading, reload } = useAsync(async () => {
-    const [competition, division] = await Promise.all([getCompetition(cid), getDivision(cid, did)]);
+    const [competition, division, divisions] = await Promise.all([getCompetition(cid), getDivision(cid, did), listDivisions(cid, false)]);
     const prediction = user && division ? await getPrediction(cid, did, user.uid) : null;
-    return { competition, division, prediction };
+    const mine = user ? await myPredictions(cid, divisions.filter((d) => d.id !== did).map((d) => d.id), user.uid) : new Map<string, PredictionDoc>();
+    return { competition, division, prediction, divisions, mine };
   }, [cid, did, user?.uid]);
   const loaded = data?.division;
   const bracket = useMemo(() => (loaded ? bracketOf(did, loaded) : null), [loaded, did]);
@@ -51,6 +61,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const outcome = division.result ? resultFromPlaces(division.result) : undefined;
   const lines = outcome && prediction ? scorePrediction(bracket, picksFromPlaces(prediction.picks), outcome).lines : [];
   const nameOf = (id: string) => bracket.entrants.find((e) => e.athleteId === id)?.name ?? "—";
+  const next = nextDivision(data.divisions, data.mine, did, now);
 
   async function save() {
     if (!user || !check.valid) return;
@@ -59,6 +70,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
     try {
       await savePrediction(cid, did, user.uid, places, division.version);
       setDraft(null);
+      setJustSaved(true);
       setMessage({ tone: "ok", text: "Pronostic enregistré. Tu peux le modifier jusqu'au verrouillage." });
       reload();
     } catch (cause) {
@@ -96,7 +108,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
 
       {division.result && <p className="muted small">Vert : juste · rouge : manqué.</p>}
       <BracketSheet tree={tree} places={places} result={division.result}
-        onChange={editable ? (next) => { setDraft(next); setMessage(null); } : undefined} />
+        onChange={editable ? (places) => { setDraft(places); setMessage(null); setJustSaved(false); } : undefined} />
 
       {(user || hasResults) && (
         <section>
@@ -125,14 +137,27 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
         </section>
       )}
 
-      {editable && (
+      <nav className="division-nav">
+        <Link to={`/competitions/${cid}`} className="button">← Toutes les divisions</Link>
+        {next && <Link to={`/competitions/${cid}/divisions/${next.division.id}`} className="button">{next.todo ? "Suivante à faire" : "Suivante"} : {next.division.category} →</Link>}
+      </nav>
+
+      {editable && (justSaved && !dirty ? (
+        <div className="savebar">
+          <span className="ok small">✓ Pronostic enregistré</span>
+          <span className="savebar-actions">
+            <Link to={`/competitions/${cid}`} className="button">Divisions</Link>
+            {next && <Link to={`/competitions/${cid}/divisions/${next.division.id}`} className="button primary">{next.todo ? "Suivante à faire" : "Suivante"} →</Link>}
+          </span>
+        </div>
+      ) : (
         <div className="savebar">
           <span className="muted small">{message?.text ?? `${chosen} choix sur ${total}${chosen < total ? " : un pronostic incomplet compte quand même" : ""}`}</span>
           <button className="primary" disabled={busy || !check.valid || (!dirty && !stale)} onClick={save}>
             {busy ? "Enregistrement…" : prediction && !dirty && !stale ? "Enregistré" : "Enregistrer"}
           </button>
         </div>
-      )}
+      ))}
       {!editable && message && <p className={message.tone}>{message.text}</p>}
     </main>
   );

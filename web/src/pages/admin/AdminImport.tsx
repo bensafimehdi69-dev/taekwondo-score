@@ -9,20 +9,20 @@ import { useAsync } from "../../useAsync.ts";
 import type { CompetitionDoc } from "../../../../src/model.ts";
 
 /** Import d'un PDF de tirage dans une compétition : contrôle, puis publication des divisions validées. */
-export function AdminImportPage({ cid }: { cid: string }) {
+export function AdminImportPage({ cid, day }: { cid: string; day?: string }) {
   const { data: competition } = useAsync(() => getCompetition(cid), [cid]);
   return (
     <ControlScreen publish={{
-      back: <Link to={`/admin/competitions/${cid}`} className="brand">← {competition?.name ?? "Compétition"}</Link>,
-      render: (session) => competition ? <PublishButton cid={cid} competition={competition} session={session} /> : null,
+      back: <Link to={`/admin/competitions/${cid}`} className="brand">← {competition?.name ?? "Compétition"}{day ? ` · ${formatDay(day, { weekday: "short", day: "numeric", month: "short" })}` : ""}</Link>,
+      render: (session) => competition ? <PublishButton cid={cid} competition={competition} session={session} initialDay={day} /> : null,
     }} />
   );
 }
 
-function PublishButton({ cid, competition, session }: { cid: string; competition: WithId<CompetitionDoc>; session: Session }) {
+function PublishButton({ cid, competition, session, initialDay }: { cid: string; competition: WithId<CompetitionDoc>; session: Session; initialDay?: string }) {
   const validated = session.entries.filter((e) => e.validated);
   const [open, setOpen] = useState(false);
-  const [day, setDay] = useState(competition.startDate);
+  const [day, setDay] = useState(initialDay ?? competition.startDate);
   const [time, setTime] = useState("09:00");
   const [status, setStatus] = useState<DivisionStatus>("open");
   const [busy, setBusy] = useState(false);
