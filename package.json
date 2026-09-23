@@ -15,7 +15,7 @@
     "admin": "node --env-file-if-exists=.env scripts/set-admin.mjs",
     "dev": "node scripts/prepare-assets.mjs && vite",
     "build": "node scripts/prepare-assets.mjs && vite build",
-    "test:rules": "PATH=\"$(brew --prefix openjdk@21 2>/dev/null || echo /nonexistent)/bin:$PATH\" firebase emulators:exec --only firestore --project demo-taekwondo-score \"node --test tests-rules/*.test.mjs\"",
+    "test:rules": "PATH=\"$(brew --prefix openjdk@21 2>/dev/null || echo /nonexistent)/bin:$PATH\" firebase emulators:exec --config firebase.rules-test.json --only firestore --project demo-taekwondo-score \"node --test tests-rules/*.test.mjs\"",
     "dev:demo": "node scripts/prepare-assets.mjs && PATH=\"$(brew --prefix openjdk@21 2>/dev/null || echo /nonexistent)/bin:$PATH\" firebase emulators:exec --only auth,firestore --project demo-taekwondo-score \"node scripts/seed-demo.mjs && VITE_FIREBASE_EMULATORS=1 vite\""
   },
   "dependencies": {

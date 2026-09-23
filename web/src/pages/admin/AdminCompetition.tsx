@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { DIVISION_STATUSES, zonedTimeToUtc, type DivisionStatus } from "../../../../src/model.ts";
 import { deleteDivision, getCompetition, listDivisions, recomputeLeaderboards, saveCompetition, setDivisionLock, setDivisionStatus } from "../../data.ts";
-import { errorMessage, formatDay, localDayAndTime } from "../../format.ts";
-import { Link } from "../../router.tsx";
+import { adminError, formatDay, localDayAndTime } from "../../format.ts";
+import { Link, navigate } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
 import { CompetitionForm } from "./CompetitionForm.tsx";
+import { DeleteCompetitionButton } from "./DeleteCompetition.tsx";
 
 export const STATUS_LABELS: Record<DivisionStatus, string> = {
   draft: "Brouillon", review: "En contrôle", open: "Ouverte", results: "Résultats saisis", closed: "Clôturée",
@@ -24,7 +25,7 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
   async function act(action: () => Promise<unknown>, done: string) {
     setMessage(null);
     try { await action(); setMessage({ tone: "ok", text: done }); reload(); }
-    catch (cause) { setMessage({ tone: "error", text: errorMessage(cause) }); }
+    catch (cause) { setMessage({ tone: "error", text: adminError(cause) }); }
   }
 
   return (
@@ -68,7 +69,7 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
                     <Link to={`/competitions/${cid}/divisions/${division.id}`} className="button small">Voir</Link>
                     <Link to={`/admin/competitions/${cid}/divisions/${division.id}/resultats`} className="button small">Résultats</Link>
                     <button className="small danger" onClick={() => {
-                      if (window.confirm(`Supprimer ${division.category} ? Les pronostics déjà faits ne seront plus visibles.`)) {
+                      if (window.confirm(`Supprimer ${division.category} ? Ses pronostics seront supprimés aussi, définitivement.`)) {
                         void act(() => deleteDivision(cid, division.id), "Division supprimée.");
                       }
                     }}>Supprimer</button>
@@ -86,6 +87,12 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
           startDate: competition.startDate, endDate: competition.endDate, published: competition.published }}
           submitLabel="Enregistrer" onSubmit={async (next) => { await saveCompetition(cid, next); reload(); }} />
       </details>
+
+      <section className="panel danger-zone">
+        <strong>Supprimer la compétition</strong>
+        <p className="muted small">Efface ses divisions, les pronostics des joueurs et son classement. Le classement général est recalculé sans elle.</p>
+        <DeleteCompetitionButton competition={competition} onDeleted={() => navigate("/admin", { replace: true })} />
+      </section>
     </main>
   );
 }

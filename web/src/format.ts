@@ -36,6 +36,11 @@ export function formatCountdown(ms: number) {
 
 export const formatPoints = (points: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(points);
 
+/** Erreur d'une action d'administration : un refus du serveur vient des droits, pas d'un verrouillage. */
+export const adminError = (error: unknown) => (error as { code?: string })?.code === "permission-denied"
+  ? "Action refusée par le serveur : ta session d'administrateur n'est pas reconnue. Déconnecte-toi, reconnecte-toi, puis réessaie."
+  : errorMessage(error);
+
 export const errorMessage = (error: unknown) => {
   const code = (error as { code?: string })?.code ?? "";
   if (code === "permission-denied") return "Action refusée par le serveur : division verrouillée, ou session expirée (reconnecte-toi).";

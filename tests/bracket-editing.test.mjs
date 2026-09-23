@@ -81,3 +81,12 @@ test("un combat de finale saisi à la main lève l'anomalie « aucun parcours re
   // Changer de finale remplace la fin du parcours au lieu de l'allonger.
   assert.deepEqual(setFinalFight(fixed, "302").entrants[0].path, ["101", "201", "302"]);
 });
+
+test("catégorie corrigée à la main : libellé recomposé, comptée comme correction, rien de deviné", async () => {
+  const { setCategory } = await import("../src/bracket-editing.ts");
+  const unknownAge = { ...div8, ageCategory: "To confirm", category: "To confirm · Men · -58 kg" };
+  const fixed = setCategory(unknownAge, { ageCategory: " Senior " });
+  assert.equal(fixed.category, "Senior · Men · -58 kg");
+  assert.equal(countCorrections(unknownAge, fixed), 1);
+  assert.equal(setCategory(fixed, { weightCategory: "" }).category, "Senior · Men · To confirm");
+});

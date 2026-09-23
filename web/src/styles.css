@@ -131,6 +131,11 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .alert-error { background: var(--error-bg); color: var(--error); }
 .alert-warn { background: var(--warn-bg); color: var(--warn); }
 .alert-ok { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.category-editor { display: grid; gap: 6px; margin-top: 6px; font-size: 13px; }
+.category-editor.is-incomplete { padding: 8px 10px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); }
+.category-editor p { margin: 0; font-weight: 600; }
+.category-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.category-fields label { display: grid; gap: 2px; color: var(--muted); font-size: 12px; }
 .audit-line { margin: 0; padding: 6px 12px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); font-size: 13px; }
 .audit-line.is-clean { background: var(--ok-bg); color: var(--ok); }
 .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; }
@@ -332,6 +337,13 @@ table.points-table, table.ranking { width: 100%; border-collapse: collapse; back
 .ranking tr.is-me { background: var(--quarter-bg); }
 
 .admin-divisions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.admin-competitions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.admin-competition { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.admin-competition > a { flex: 1; display: grid; gap: 4px; justify-items: start; color: var(--text); text-decoration: none; min-width: 0; }
+.admin-competition > a:hover strong { color: var(--accent); }
+.danger-zone { border-color: var(--error); display: grid; gap: 8px; justify-items: start; }
+.danger-zone p { margin: 0; }
+button.danger-solid { background: var(--error); border-color: var(--error); color: #fff; font-weight: 600; }
 .admin-division { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; }
 .admin-division-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .admin-division-controls label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
@@ -347,6 +359,8 @@ table.points-table, table.ranking { width: 100%; border-collapse: collapse; back
   .summary-places > div { grid-template-columns: 1fr; gap: 2px; }
   .points-table th:nth-child(2), .points-table td:nth-child(2) { display: none; }
   .form .row { grid-template-columns: 1fr; }
+  .category-fields { grid-template-columns: 1fr 1fr; }
+  .admin-competition { align-items: flex-start; }
 }
 
 /* Petit écran (smartphone, tablette en portrait) : liste et division séparées, onglets arbre / PDF,

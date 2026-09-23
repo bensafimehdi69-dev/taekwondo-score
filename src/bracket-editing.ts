@@ -64,6 +64,20 @@ export function setFinalFight(division: BracketDivision, finalFight: string | un
   return withEntrants(division, entrants, final);
 }
 
+export type CategoryPatch = Partial<Pick<BracketDivision, "ageCategory" | "genderCategory" | "weightCategory">>;
+
+/**
+ * Corrige la catégorie (âge, genre, poids), par exemple quand la feuille n'imprime pas l'âge (« To confirm » au Grand Prix).
+ * Rien n'est deviné : une valeur vide redevient « To confirm ».
+ */
+export function setCategory(division: BracketDivision, patch: CategoryPatch): BracketDivision {
+  const next = { ...division };
+  for (const key of ["ageCategory", "genderCategory", "weightCategory"] as const) {
+    if (key in patch) next[key] = patch[key]?.trim() || "To confirm";
+  }
+  return { ...next, category: `${next.ageCategory} · ${next.genderCategory} · ${next.weightCategory}` };
+}
+
 /** Déplace un athlète d'un cran dans l'ordre de lecture de l'arbre. */
 export function moveEntrant(division: BracketDivision, athleteId: string, delta: -1 | 1): BracketDivision {
   const from = division.entrants.findIndex((e) => e.athleteId === athleteId);
@@ -97,11 +111,11 @@ export function addEntrant(division: BracketDivision, placement: { half?: string
 
 const FIELDS = ["name", "country", "seed", "half", "quarter"] as const;
 
-/** Nombre de corrections par rapport à la lecture d'origine : finale, athlètes ajoutés, retirés ou modifiés, et ordre changé. */
+/** Nombre de corrections par rapport à la lecture d'origine : catégorie, finale, athlètes ajoutés, retirés ou modifiés, et ordre changé. */
 export function countCorrections(original: BracketDivision, current: BracketDivision): number {
   const before = new Map(original.entrants.map((e) => [e.athleteId, e]));
   const after = new Map(current.entrants.map((e) => [e.athleteId, e]));
-  let corrections = original.finalFight === current.finalFight ? 0 : 1;
+  let corrections = (original.finalFight === current.finalFight ? 0 : 1) + (original.category === current.category ? 0 : 1);
   for (const [id, e] of after) {
     const o = before.get(id);
     if (!o || FIELDS.some((field) => (o[field] ?? undefined) !== (e[field] ?? undefined))) corrections += 1;
