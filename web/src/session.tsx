@@ -26,7 +26,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSession({ loading: false, user: null, profile: null, isAdmin: false });
         return;
       }
-      const token = await user.getIdTokenResult();
+      // Jeton relu à l'ouverture : un rôle admin accordé depuis la dernière visite est pris en compte sans reconnexion.
+      const token = await user.getIdTokenResult(true).catch(() => user.getIdTokenResult());
       const isAdmin = token.claims.admin === true;
       stopProfile = onSnapshot(doc(db, "users", user.uid), (snapshot) => {
         const data = snapshot.data();

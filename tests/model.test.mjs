@@ -72,3 +72,15 @@ test("attribution d'une place : une place par athlète, remplacement en finale, 
   assert.deepEqual(assignPlace(places, "C", null, limits).places.bronze, ["B"]);
   assert.match(assignPlace(places, "E", "quarter", { ...limits, quarter: 0 }).error, /Pas de place/);
 });
+
+test("même arbre : la version d'une division ne change que si le tirage change", async () => {
+  const { sameBracket, divisionDoc } = await import("../src/model.ts");
+  const [division] = buildBrackets(draw8());
+  const meta = { day: "2026-10-12", lockAt: new Date(), source: { fileName: "t.pdf", sha256: "x", pages: [1] } };
+  const a = divisionDoc(division, meta).bracket;
+  assert.ok(sameBracket(a, divisionDoc(division, { ...meta, lockAt: new Date(0), status: "open" }).bracket));
+  const renamed = { ...division, entrants: division.entrants.map((e, i) => (i === 0 ? { ...e, name: "Autre Nom" } : e)) };
+  assert.ok(!sameBracket(a, divisionDoc(renamed, meta).bracket));
+  const moved = { ...division, entrants: division.entrants.map((e, i) => (i === 1 ? { ...e, quarter: "102" } : e)) };
+  assert.ok(!sameBracket(a, divisionDoc(moved, meta).bracket));
+});

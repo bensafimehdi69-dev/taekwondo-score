@@ -38,7 +38,7 @@ export const formatPoints = (points: number) => new Intl.NumberFormat("fr-FR", {
 
 export const errorMessage = (error: unknown) => {
   const code = (error as { code?: string })?.code ?? "";
-  if (code === "permission-denied") return "Action refusée. Si la division vient d'être verrouillée, il est trop tard pour la modifier.";
+  if (code === "permission-denied") return "Action refusée par le serveur : division verrouillée, ou session expirée (reconnecte-toi).";
   if (code === "unavailable") return "Connexion impossible. Vérifie ton réseau et réessaie.";
   return error instanceof Error ? error.message : String(error);
 };

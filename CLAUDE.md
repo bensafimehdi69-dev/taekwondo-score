@@ -51,7 +51,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 ## App web (`web/`, phase 1)
 - Structure : `src/App.tsx` (routes), `router.tsx` (navigation par l'URL), `session.tsx` (utilisateur, pseudo, rôle admin), `data.ts` (toutes les lectures et écritures Firestore), `pages/` (joueur), `pages/admin/`, `components/BracketPicker.tsx` (arbre à toucher, pronostic et résultats), `control/` (écran de contrôle).
 - Joueur : accueil, compétition (divisions par jour, fait / à faire, compte à rebours), division (pronostic au toucher, cohérence imposée, enregistrement jusqu'au verrouillage, points détaillés après résultats), classements, compte (pseudo).
-- Admin : compétitions (création, publication), divisions (statut, heure de verrouillage locale, suppression), import d'un PDF → écran de contrôle → « Publier » (jour, heure de verrouillage, statut ; republier = nouvelle version), résultats saisis dans l'arbre → points de chaque pronostic → classements de la compétition et général (`src/scoring.ts`).
+- Admin : compétitions (création, publication), divisions (statut, heure de verrouillage locale, suppression), import d'un PDF → écran de contrôle → « Publier » (jour, heure de verrouillage, statut ; republier un arbre inchangé garde la version et les pronostics, un arbre corrigé passe à la version suivante ; une division avec résultats garde son statut et son résultat), résultats saisis dans l'arbre → points de chaque pronostic → classements de la compétition et général (`src/scoring.ts`).
 - Le moteur PDF n'est chargé que sur la page d'import (le bundle des joueurs ne le contient pas).
 
 ## Écran de contrôle (`web/src/control/`, route `/admin/competitions/:cid/import`)

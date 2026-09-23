@@ -16,7 +16,7 @@ Ajouts du 23/09/2026 (modifications du moteur d'origine visibles dans `CHANGES-m
 ```sh
 npm install --ignore-scripts
 npm run typecheck
-npm test                                   # 96 tests : 79 réussis, 17 ignorés sans PDF réels
+npm test                                   # 97 tests : 80 réussis, 17 ignorés sans PDF réels
 npm run test:rules                         # règles Firestore dans l'émulateur (Java 21, CLI firebase)
 npm run brackets -- "/chemin/tirage.pdf"   # une ligne par division + anomalies
 ```
