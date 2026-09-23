@@ -57,7 +57,7 @@ export function BracketView({ division, original, selected, onSelect, onAdd, onF
                           <span className="name">{e.name || <em>Sans nom</em>}</span>
                           <span className="country">{e.country ?? "—"}</span>
                           <span className="fight" title="Premier combat">{e.path[0] ?? ""}</span>
-                          {change && <span className={`tag tag-${change}`}>{change === "added" ? "ajouté" : "corrigé"}</span>}
+                          {change && <span className={`tag tag-${change}`}>{change === "added" ? (e.athleteId.startsWith("pdf-") ? "ajouté du PDF" : "ajouté") : "corrigé"}</span>}
                         </button>
                       </li>
                     );
