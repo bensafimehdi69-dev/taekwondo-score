@@ -52,10 +52,10 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 ## État au 23/09/2026
 - Fait : moteur reconstitué, tête de série (`seed`), arbre par division (`src/bracket-builder.ts`), règles de pronostic (`src/prediction.ts`), projet Firebase créé (Auth, Firestore fermé, script admin).
 - Limite : sur le livret de résultats du GP de Rome 2026, 0/7 divisions sans revue (côté droit mal décodé, colonne de combats manquée à gauche).
-- Bilan sur 15 PDF réels (`pdf-tests/`) : 127/197 divisions lues sans anomalie (sans anomalie ≠ vérifiée juste). Complets : German Open, Spanish Open, livrets WT de résultats.
-- Arab Cup 2025 et Fujairah Open 2025 : les grandes divisions sont coupées sur plusieurs pages (« Page 1 of 3 »… finale sur la dernière) ; le moteur crée une division par page, d'où l'écart avec « Contestants ».
-- PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat. U21 World Championship : format non reconnu.
-- Prochaine étape : règle de lecture des divisions sur plusieurs pages (Arab Cup / Fujairah), puis modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
+- Bilan sur 15 PDF réels (`pdf-tests/`) : 135/171 divisions lues sans anomalie (sans anomalie ≠ vérifiée juste). Complets : German Open, Spanish Open, Fujairah Open, livrets WT de résultats.
+- Tableaux coupés sur plusieurs pages (TaekoPlan « Page 1 of 3 ») : raccordés par `bracket-builder.ts` (la « finale » de chaque page de moitié est une demi-finale de la page de la finale ; les athlètes réimprimés sont écartés, les noms coupés ne sont rattachés que s'il n'y a qu'un candidat). « Contestants » se contrôle sur la division entière (`withReadingChecks`).
+- Limites restantes : numéros de combat à décimale (« 928.1 », Arab Cup avec résultats) non lus ; têtes de série « (1) NOM » non lues au format TaekoPlan ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
+- Prochaine étape : têtes de série au format TaekoPlan (elles comptent dans le barème), puis modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.
