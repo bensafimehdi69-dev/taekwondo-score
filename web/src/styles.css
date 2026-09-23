@@ -285,6 +285,9 @@ a { color: var(--accent); }
 .sheet-athlete .name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
 .sheet-athlete .country { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
 .sheet-athlete .place { font-size: 10px; padding: 1px 6px; }
+/* Drapeau emoji devant le code pays ou le nom (rien si le pays n'a pas de drapeau : WT, AIN). */
+.flag { margin-right: 4px; font-size: 1.1em; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+.sheet-athlete.side-right .country .flag { margin-right: 4px; }
 .place.is-right { box-shadow: 0 0 0 2px var(--ok); }
 .place.is-wrong { box-shadow: 0 0 0 2px var(--error); opacity: 0.75; }
 .sheet-chip { justify-content: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 11px; }
@@ -384,7 +387,7 @@ button.danger-solid { background: var(--error); border-color: var(--error); colo
   .topbar .file, .hide-narrow { display: none; }
   button { min-height: 44px; }
   button.link { min-height: 32px; }
-  input { font-size: 16px; min-height: 44px; }
+  input, select { font-size: 16px; min-height: 44px; }
   .check input { min-height: auto; width: 22px; height: 22px; }
 
   .workspace { grid-template-columns: 1fr; }
