@@ -52,10 +52,11 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 ## État au 23/09/2026
 - Fait : moteur reconstitué, tête de série (`seed`), arbre par division (`src/bracket-builder.ts`), règles de pronostic (`src/prediction.ts`), projet Firebase créé (Auth, Firestore fermé, script admin).
 - Limite : sur le livret de résultats du GP de Rome 2026, 0/7 divisions sans revue (côté droit mal décodé, colonne de combats manquée à gauche).
-- Bilan sur 15 PDF réels (`pdf-tests/`) : 135/171 divisions lues sans anomalie (sans anomalie ≠ vérifiée juste). Complets : German Open, Spanish Open, Fujairah Open, livrets WT de résultats.
+- Bilan sur 24 PDF réels (`pdf-tests/`) : 182/225 divisions lues sans anomalie (sans anomalie ≠ vérifiée juste). Complets : German Open, Spanish Open, Fujairah Open, Euro 2026, livrets WT de résultats.
 - Tableaux coupés sur plusieurs pages (TaekoPlan « Page 1 of 3 ») : raccordés par `bracket-builder.ts` (la « finale » de chaque page de moitié est une demi-finale de la page de la finale ; les athlètes réimprimés sont écartés, les noms coupés ne sont rattachés que s'il n'y a qu'un candidat). « Contestants » se contrôle sur la division entière (`withReadingChecks`).
-- Limites restantes : numéros de combat à décimale (« 928.1 », Arab Cup avec résultats) non lus ; têtes de série « (1) NOM » non lues au format TaekoPlan ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
-- Prochaine étape : têtes de série au format TaekoPlan (elles comptent dans le barème), puis modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
+- Règles du 23/09/2026 dans `team-path-parser.ts` : tête de série TaekoPlan lue sur la ligne du dossard (« B/1353 (1) NOM ») ; livrets européens avec le pays avant le nom (« (1) EGY NOM Prénom », « BIH Nom, Prénom »), appliqué seulement si ce format domine la page (3 lignes non ambiguës au moins).
+- Limites restantes : format UPTKD (Spanish Open 2026, colonnes « Rnd 1 / Q-Final ») non reconnu ; liaisons de combats contradictoires sur certaines pages européennes ; numéros de combat à décimale (« 928.1 ») non lus ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
+- Prochaine étape : modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.

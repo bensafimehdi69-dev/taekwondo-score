@@ -16,7 +16,7 @@ Ajouts du 23/09/2026 (modifications du moteur d'origine visibles dans `CHANGES-m
 ```sh
 npm install --ignore-scripts
 npm run typecheck
-npm test                                   # 70 tests : 61 réussis, 9 ignorés sans PDF réels
+npm test                                   # 77 tests : 65 réussis, 12 ignorés sans PDF réels
 npm run brackets -- "/chemin/tirage.pdf"   # une ligne par division + anomalies
 ```
 

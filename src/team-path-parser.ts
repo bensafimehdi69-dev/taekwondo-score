@@ -441,7 +441,31 @@ function anchorsForTeam(page: ParsedPage, team: string): Array<{ anchor: VisualT
   ));
 }
 
-type DrawEntry = { anchor: VisualTextItem; name: string; country: string; affiliation: string; sourceText: string; format: "taekoplan" | "wt" | "unknown" };
+type DrawEntry = { anchor: VisualTextItem; name: string; country: string; affiliation: string; sourceText: string; format: "taekoplan" | "wt" | "unknown"; seed?: number };
+
+// Livrets européens : le pays précède le nom, « (1) EGY NOM Prénom » ou « BIH Nom, Prénom ».
+const COUNTRY_LAST = /^(.+?)\s+\(?([A-Z]{3})\)?\s*$/;
+const COUNTRY_FIRST = /^(?:\([Xx\d]+\)\s*)?([A-Z]{3})\s+(.+)$/;
+const ABBREVIATED_WINNER_COUNTRY = /\([A-Z]{3}\)\s*$/;
+
+/**
+ * La page place-t-elle le pays avant le nom ? On ne compte que les lignes sans ambiguïté
+ * (« (1) LIU You-yun TPE » se lit dans les deux sens) : le format doit dominer, sur 3 lignes au moins.
+ */
+function countryFirstPage(items: VisualTextItem[]): boolean {
+  let first = 0;
+  let last = 0;
+  for (const item of items) {
+    const text = tidy(item.text);
+    if (ABBREVIATED_WINNER_COUNTRY.test(text)) continue;
+    const head = text.match(COUNTRY_FIRST);
+    const headIsName = !!head && likelyName(cleanAthleteName(head[2], ""));
+    const tail = COUNTRY_LAST.test(text);
+    if (headIsName && !tail) first += 1;
+    else if (tail && !headIsName) last += 1;
+  }
+  return first >= 3 && first > last;
+}
 
 function pageEntries(page: ParsedPage): DrawEntry[] {
   const entries: DrawEntry[] = [];
@@ -454,8 +478,11 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
         && Math.abs(item.y - bib.y) <= Math.max(2, bib.height * 0.4)
         && item.x >= bib.x - 1 && item.x - bib.x < page.width * 0.24
         && !/^[A-Z]{3}$/.test(tidy(item.text)));
-      const name = cleanAthleteName(nameParts.sort((a, b) => a.x - b.x).map((item) => item.text).join(" "), "");
+      const rawName = nameParts.sort((a, b) => a.x - b.x).map((item) => item.text).join(" ");
+      const name = cleanAthleteName(rawName, "");
       if (!likelyName(name) || looksLikeTeamOnlyName(name)) continue;
+      // Tête de série TaekoPlan, « B/1353 (1) NOM » : lue avant que le nettoyage du nom ne l'efface.
+      const seed = parseSeed(tidy(rawName).replace(/^[BR]\s*\/\s*\d+\s*/i, ""));
       const affiliationLine = page.items.filter((item) => sameSide(item) && isOuter(item)
         && item.y > bib.y + 3 && item.y - bib.y < Math.max(16, bib.height * 2.5)
         && !/^[BR]\s*\//i.test(tidy(item.text)) && /\p{L}/u.test(item.text))
@@ -464,7 +491,7 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
       const country = affiliationText.match(/\b([A-Z]{3})\)?\s*$/)?.[1] ?? "";
       const affiliation = tidy(country ? affiliationText.replace(new RegExp(`\\s*\\(?${country}\\)?\\s*$`), "") : affiliationText);
       entries.push({ anchor: affiliationLine ?? bib, name, country, affiliation,
-        sourceText: tidy(`${name} ${affiliationText}`), format: "taekoplan" });
+        sourceText: tidy(`${name} ${affiliationText}`), format: "taekoplan", ...(seed !== undefined ? { seed } : {}) });
     }
   } else {
     // Only outer participant rows are entrants. Interior winner names and
@@ -475,8 +502,11 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
         && (center < page.width * 0.32 || center > page.width * 0.68)
         && item.y > page.height * 0.08 && item.y < page.height * 0.94;
     });
+    const countryFirst = countryFirstPage(outerCandidates);
     const wrappedContinuations = new Set<VisualTextItem>();
     for (const item of outerCandidates) {
+      // Pays en tête : une ligne seedée qui ne finit pas par un pays n'est pas coupée ; ne rien y rattacher.
+      if (countryFirst) break;
       if (!/^\s*\([X\d]+\)/i.test(item.text) || /\s[A-Z]{3}\)?\s*$/.test(item.text)) continue;
       const right = item.x + item.width / 2 > page.width / 2;
       const continuation = page.items.filter((other) => other.y > item.y + 1
@@ -489,7 +519,7 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
     const candidates = outerCandidates.filter((item) => !wrappedContinuations.has(item)).map((item) => {
       // Long seeded names can wrap onto a second line, sometimes leaving only
       // the country there. Join by the aligned outer edge, not by search text.
-      if (!/^\s*\([X\d]+\)/i.test(item.text) || /\s[A-Z]{3}\)?\s*$/.test(item.text)) return item;
+      if (countryFirst || !/^\s*\([X\d]+\)/i.test(item.text) || /\s[A-Z]{3}\)?\s*$/.test(item.text)) return item;
       const right = item.x + item.width / 2 > page.width / 2;
       const continuation = page.items.filter((other) => other.y > item.y + 1
         && other.y - item.y <= Math.max(12, item.height * 1.8)
@@ -507,13 +537,20 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
       // outer rows, while rejecting result/classification ranks such as
       // "1 Alice Martin FRA" that are not bracket participants.
       if (!/^\([X\d]+\)\s*/i.test(text) && /^\d+[.)]?\s+/i.test(text)) continue;
-      const match = text.match(/^(.+?)\s+\(?([A-Z]{3})\)?\s*$/);
+      // Pays en tête (page reconnue comme telle) : essayé d'abord, sauf sur un vainqueur réimprimé « NOM X. (PAYS) ».
+      const head = countryFirst && !ABBREVIATED_WINNER_COUNTRY.test(text) ? text.match(COUNTRY_FIRST) : null;
+      const headName = head ? cleanAthleteName(head[2], "") : "";
+      if (head && likelyName(headName) && !looksLikeTeamOnlyName(headName)) {
+        entries.push({ anchor: item, name: headName, country: head[1], affiliation: "", sourceText: text, format: "wt" });
+        continue;
+      }
+      const match = text.match(COUNTRY_LAST);
       if (!match) continue;
       const name = cleanAthleteName(match[1], "");
       if (!likelyName(name) || looksLikeTeamOnlyName(name)) continue;
       // Livrets de résultats WT : le vainqueur est réimprimé dans l'arbre sous forme abrégée,
       // « NOM X.Y. (PAYS) ». Ce n'est pas un entrant.
-      if (/\([A-Z]{3}\)\s*$/.test(text) && /(?:^|\s)(?:[A-Z]\.\s?)+$/.test(name)) continue;
+      if (ABBREVIATED_WINNER_COUNTRY.test(text) && /(?:^|\s)(?:[A-Z]\.\s?)+$/.test(name)) continue;
       entries.push({ anchor: item, name, country: match[2], affiliation: "", sourceText: text, format: "wt" });
     }
   }
@@ -522,6 +559,8 @@ function pageEntries(page: ParsedPage): DrawEntry[] {
     && normalized(other.affiliation) === normalized(entry.affiliation)
     && Math.abs(other.anchor.x - entry.anchor.x) < 10 && Math.abs(other.anchor.y - entry.anchor.y) < 10));
 }
+
+const seedOf = (entry: DrawEntry) => entry.seed ?? (entry.format === "wt" ? parseSeed(entry.sourceText) : undefined);
 
 const drawIndexCache = new WeakMap<ParsedPage[], TeamDrawAnalysis>();
 
@@ -565,7 +604,7 @@ export function buildDrawIndex(pages: ParsedPage[]): TeamDrawAnalysis {
         confidence,
         warnings,
         sourceText: found.sourceText,
-        ...(found.format === "wt" && parseSeed(found.sourceText) !== undefined ? { seed: parseSeed(found.sourceText) } : {}),
+        ...(seedOf(found) !== undefined ? { seed: seedOf(found) } : {}),
       });
     }
   }
