@@ -16,11 +16,20 @@ Ajouts du 23/09/2026 (modifications du moteur d'origine visibles dans `CHANGES-m
 ```sh
 npm install --ignore-scripts
 npm run typecheck
-npm test                                   # 52 tests : 44 réussis, 8 ignorés sans PDF réels
+npm test                                   # 63 tests : 55 réussis, 8 ignorés sans PDF réels
 npm run brackets -- "/chemin/tirage.pdf"   # une ligne par division + anomalies
 ```
 
 Tests sur PDF réels : `TKD_PDF_FIXTURES_DIR="/chemin/pdf" TKD_REQUIRE_PDF_FIXTURES=1 npm test`
+
+## Écran de contrôle des tirages
+
+```sh
+npm run dev      # http://localhost:5173 : import d'un PDF, arbre reconstruit à côté du PDF, corrections, validation
+npm run build    # version compilée dans dist/
+```
+
+Le PDF est lu dans le navigateur et n'est envoyé nulle part. Le contrôle s'exporte en JSON (bouton « Exporter le contrôle »).
 
 ## Firebase
 

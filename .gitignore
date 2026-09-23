@@ -6,3 +6,5 @@ pdf-tests/
 firebase-debug.log
 firestore-debug.log
 *service-account*.json
+dist/
+public/vendor/
