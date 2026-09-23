@@ -63,6 +63,7 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
         {division.result && " Un résultat est déjà enregistré : le modifier recalcule tous les points."}</p>
       {imported && !message && (
         <p className="notice">Prérempli depuis <strong>{imported.fileName}</strong> : compare avec le PDF, corrige si besoin en touchant les athlètes, puis enregistre.
+          {(imported.fromWinners?.length ?? 0) > 0 && ` ${imported.fromWinners!.length} place(s) lue(s) grâce aux vainqueurs des combats.`}
           {imported.deduced.length > 0 && ` ${imported.deduced.length} battu(s) en quart déduit(s) de l'arbre.`}
           {imported.issues.length > 0 && ` Alertes : ${imported.issues.join(" ")}`}</p>
       )}

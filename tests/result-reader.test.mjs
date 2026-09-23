@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBrackets } from "../src/bracket-builder.ts";
 import { readDraw } from "../src/read-draw.ts";
-import { divisionResult, matchRankings, pageRankings, parseRankingRow, readRankings } from "../src/result-reader.ts";
+import { divisionResult, matchRankings, pageRankings, parseRankingRow, readRankings, readWinnerMarks } from "../src/result-reader.ts";
 import { draw8 } from "./fixtures-bracket.mjs";
 
 const item = (text, x, y, width = 150) => ({ text, x, y, width, height: 6 });
@@ -64,6 +64,29 @@ test("association : chaque division reçoit le classement de ses athlètes, rien
   assert.deepEqual([twice[0].result, twice[0].ambiguous], [null, true]);
 });
 
+test("vainqueurs des combats : le nom abrégé est rattaché à la case du combat collée à lui", () => {
+  const marks = readWinnerMarks([page([
+    item("324", 230, 470, 13), item("TSANG C. H. (HKG)", 249, 469, 60), item("PTF 2 - 1", 249, 475, 40),
+    item("617", 584, 470, 13), item("DE DIOS JOSE A. (ESP)", 522, 467, 60),
+    item("1 DE MORAES Giovanni aubin (BRA)", 346, 463),
+  ])]);
+  assert.deepEqual(marks, [
+    { page: 1, name: "TSANG C. H.", country: "HKG", fight: "324" }, { page: 1, name: "DE DIOS JOSE A.", country: "ESP", fight: "617" },
+  ]);
+});
+
+test("résultat par les combats seuls : podium et battus en quart, sans tableau de classement", () => {
+  const mark = (id, fight) => ({ page: 1, name: `${id}name A.`, country: "XXX", fight });
+  // A bat B (101), C bat D (102), F bat E (103), H bat G (104) ; A bat C (201), H bat F (202) ; A bat H (301).
+  const marks = [mark("A", "101"), mark("C", "102"), mark("F", "103"), mark("H", "104"), mark("A", "201"), mark("H", "202"), mark("A", "301")];
+  const result = divisionResult(named, null, marks);
+  assert.deepEqual(result.places, { gold: ["A"], silver: ["H"], bronze: ["C", "F"], quarter: ["B", "D", "E", "G"] });
+  assert.deepEqual(result.issues, []);
+  // Un nom collé à une case qui contredit la branche (C en finale alors que A a gagné la demie) n'est pas retenu.
+  const wrong = divisionResult(named, null, [...marks.slice(0, 6), mark("C", "301")]);
+  assert.deepEqual([wrong.places.gold, wrong.places.silver], [[], []]);
+});
+
 // PDF réels privés (jamais commités).
 const locations = process.env.TKD_PDF_FIXTURES_DIRS ? JSON.parse(process.env.TKD_PDF_FIXTURES_DIRS)
   : [process.env.TKD_PDF_FIXTURES_DIR || "fixtures"];
@@ -75,7 +98,8 @@ async function read(file) {
   try { return await readDraw(new File([readFileSync(fixture(file))], file, { type: "application/pdf" })); }
   finally { console.log = log; console.warn = warn; }
 }
-const results = (draw) => matchRankings(draw.brackets.map((b, i) => ({ id: String(i), bracket: b })), readRankings(draw.pages));
+const results = (draw, withWinners = false) => matchRankings(draw.brackets.map((b, i) => ({ id: String(i), bracket: b })), readRankings(draw.pages),
+  withWinners ? readWinnerMarks(draw.pages) : []);
 
 const wtResults = "Results-Competition-Draw-Sheet-Seniors.pdf";
 test(`real PDF: ${wtResults} (16 classements, podiums cohérents)`, { skip: skip(fixture(wtResults)) }, async () => {
@@ -86,6 +110,20 @@ test(`real PDF: ${wtResults} (16 classements, podiums cohérents)`, { skip: skip
   const names = (ids) => ids.map((id) => first.entrants.find((e) => e.athleteId === id)?.name);
   assert.deepEqual([names(matched[0].result.places.gold), names(matched[0].result.places.silver)], [["DE MORAES Giovanni aubin"], ["HIDAYAT Aziz"]]);
   assert.deepEqual(names(matched[0].result.places.bronze).sort(), ["CHAU Ngai long", "PANG Keston"]);
+  // Étape 2 : ce que les combats seuls donnent est toujours conforme au classement officiel (jamais contredit),
+  // et ajoute les battus en quart ; un vainqueur incertain reste vide.
+  const marks = readWinnerMarks(draw.pages);
+  let golds = 0;
+  draw.brackets.forEach((bracket, i) => {
+    const byFights = divisionResult(bracket, null, marks).places;
+    for (const place of ["gold", "silver", "bronze"]) {
+      for (const id of byFights[place]) assert.ok(matched[i].result.places[place].includes(id), `${bracket.category} ${place}`);
+    }
+    golds += byFights.gold.length;
+  });
+  assert.ok(golds >= 14, `${golds} vainqueurs trouvés par les combats`);
+  const combined = results(draw, true);
+  assert.ok(combined.reduce((n, m) => n + m.result.places.quarter.length, 0) >= 56);
 });
 
 const taekoplan = "draw with result taekoplan fornat.pdf";
