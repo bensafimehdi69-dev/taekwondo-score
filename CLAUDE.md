@@ -43,6 +43,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - `npm run admin -- utilisateur@exemple.com [--retirer]` : accorde ou retire le rôle admin (le compte doit exister).
 - `npm run test:rules` : règles Firestore testées dans l'émulateur (projet `demo-taekwondo-score`, jamais le vrai ; Java 21 et CLI `firebase` requis).
 - `firebase deploy --only firestore` : publie `firestore.rules` et `firestore.indexes.json` (après `npm run test:rules`).
+- `npm run build && firebase deploy --only hosting` : met en ligne l'app sur https://taekwondo-score-app.web.app (vérifier avant que `dist/` ne contient ni PDF ni code du mode démo).
 - `npm run dev:demo` : app complète sur les émulateurs (auth + Firestore, projet `demo-taekwondo-score`), données fictives de `scripts/seed-demo.mjs`, boutons « Joueur démo » / « Admin démo » sur la page Connexion. À utiliser pour tout test : jamais de données réelles.
 - `npm run dev:demo` et `npm run test:rules` utilisent les mêmes ports d'émulateur (8080, 9099) : arrêter l'un avant de lancer l'autre.
 - `npm run dev` : app contre le vrai projet (`localhost` n'est pas un domaine autorisé pour la connexion Google) ; `npm run build` : version compilée dans `dist/` (sans le code du mode démo).
@@ -68,7 +69,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Limites restantes : format UPTKD (Spanish Open 2026, colonnes « Rnd 1 / Q-Final ») non reconnu ; liaisons de combats contradictoires sur certaines pages européennes ; numéros de combat à décimale (« 928.1 ») non lus ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
 - Modèle Firestore et règles faits et testés (23/09/2026).
 - Phase 1 (MVP web) faite le 23/09/2026 et testée de bout en bout en mode démo, sur mobile (375 px) et ordinateur : connexion, pseudo, publication d'un vrai tirage, pronostic, résultats, points, classements.
-- Prochaine étape : mise en ligne sur Firebase Hosting (`taekwondo-score-app.web.app`, avec l'accord de Mehdi), premier admin (`npm run admin`), puis compétition réelle avec un groupe test.
+- En ligne depuis le 23/09/2026 : https://taekwondo-score-app.web.app (Firebase Hosting, plan Spark).
+- Prochaine étape : Mehdi crée son compte sur le site, puis `npm run admin -- son-email` ; ensuite une compétition réelle avec un groupe test.
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.
