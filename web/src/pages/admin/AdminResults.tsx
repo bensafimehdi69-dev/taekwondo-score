@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { buildTree, placesFromState, stateFromPlaces, type TreeState } from "../../../../src/bracket-tree.ts";
-import { bracketOf, PLACES, picksFromPlaces } from "../../../../src/model.ts";
+import { buildTree } from "../../../../src/bracket-tree.ts";
+import { bracketOf, emptyPlaces, PLACES, picksFromPlaces, type Places } from "../../../../src/model.ts";
 import { validatePrediction } from "../../../../src/prediction.ts";
 import { BracketSheet } from "../../components/BracketSheet.tsx";
 import { PicksSummary } from "../../components/PicksSummary.tsx";
@@ -17,15 +17,14 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
   const loaded = data?.division;
   const bracket = useMemo(() => (loaded ? bracketOf(did, loaded) : null), [loaded, did]);
   const tree = useMemo(() => (bracket ? buildTree(bracket) : null), [bracket]);
-  const [draft, setDraft] = useState<TreeState | null>(null);
+  const [draft, setDraft] = useState<Places | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   if (loading && !data) return <main className="page"><p className="muted">Chargement…</p></main>;
   if (error || !data?.division || !bracket || !tree) return <main className="page"><p className="error">{error ?? "Division introuvable."}</p></main>;
   const { competition, division } = data;
-  const state = draft ?? (division.result ? stateFromPlaces(tree, division.result) : {});
-  const places = placesFromState(tree, state);
+  const places = draft ?? division.result ?? emptyPlaces();
   const complete = validatePrediction(bracket, picksFromPlaces(places));
   const coherent = validatePrediction(bracket, picksFromPlaces(places), { requireComplete: false });
   const missing = PLACES.reduce((n, p) => n + division.expected[p] - places[p].length, 0);
@@ -52,9 +51,9 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
     <main className="page has-savebar">
       <p className="crumbs"><Link to={`/admin/competitions/${cid}`}>{competition?.name ?? "Compétition"}</Link></p>
       <h1>Résultats · {division.category}</h1>
-      <p className="muted small">Fais avancer les vainqueurs réels dans l'arbre : quarts, demies, finale, vainqueur. Les places se déduisent de l'arbre.
+      <p className="muted small">Touche chaque athlète classé et donne-lui sa place réelle : son chemin se dessine dans l'arbre.
         {division.result && " Un résultat est déjà enregistré : le modifier recalcule tous les points."}</p>
-      <BracketSheet tree={tree} state={state} onChange={(next) => { setDraft(next); setMessage(null); }} />
+      <BracketSheet tree={tree} places={places} onChange={(next) => { setDraft(next); setMessage(null); }} />
       <section>
         <h2>Classement saisi</h2>
         <PicksSummary bracket={bracket} places={places} limits={division.expected} />

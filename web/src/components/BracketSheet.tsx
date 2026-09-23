@@ -1,16 +1,26 @@
-// Feuille de tirage interactive, de la même forme que le PDF officiel : on fait avancer les athlètes
-// (quarts, demies, finale, vainqueur) ; chaque case n'accepte que sa branche. Zoom par boutons ou pincement.
+// Feuille de tirage interactive, de la même forme que le PDF officiel : on touche un athlète, on lui donne sa place
+// (1er, 2e, 3e, battu en quart) et son chemin se dessine dans l'arbre. Zoom par boutons ou pincement.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { advance, clearSlot, type BracketTree, type TreeState } from "../../../src/bracket-tree.ts";
+import { allowedPlaces, setPlace, stateFromPlaces, type BracketTree, type PlaceChange } from "../../../src/bracket-tree.ts";
 import { layoutSheet, SHEET } from "../../../src/bracket-layout.ts";
+import { PLACES, type Places } from "../../../src/model.ts";
+import type { Place } from "../../../src/prediction.ts";
+import { SHORT } from "./PicksSummary.tsx";
 
 type Props = {
   tree: BracketTree;
-  state: TreeState;
+  places: Places;
   /** Absent : feuille en lecture seule. */
-  onChange?: (state: TreeState) => void;
-  /** Arbre réel (résultats) : les cases justes et fausses sont marquées. */
-  result?: TreeState;
+  onChange?: (places: Places) => void;
+  /** Classement réel (résultats) : les cases et les places justes ou fausses sont marquées. */
+  result?: Places;
+};
+
+const OPTION: Record<Place, string> = {
+  gold: "Vainqueur",
+  silver: "Finaliste : perd la finale",
+  bronze: "Bronze : perd en demi-finale",
+  quarter: "Battu en quart de finale",
 };
 
 /** Nom court pour une case : nom de famille (mots en capitales) et initiale du prénom, « DURAND Lucas » → « DURAND L. ». */
@@ -22,13 +32,21 @@ export function shortName(name: string): string {
   return `${surname.join(" ")} ${given ? `${given[0]}.` : ""}`.trim();
 }
 
+const placeMap = (places: Places) => new Map(PLACES.flatMap((p) => places[p].map((id) => [id, p] as const)));
+
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.5;
 const clamp = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
 
-export function BracketSheet({ tree, state, onChange, result }: Props) {
+export function BracketSheet({ tree, places, onChange, result }: Props) {
   const layout = useMemo(() => layoutSheet(tree), [tree]);
   const entrants = useMemo(() => new Map([...tree.leaves.values()].map((leaf) => [leaf.entrant.athleteId, leaf.entrant])), [tree]);
+  // Places qui existent dans cette division (pas de quart dans un tableau de 4, par exemple).
+  const possible = useMemo(() => new Set([...tree.leaves.keys()].flatMap((id) => allowedPlaces(tree, id))), [tree]);
+  const state = useMemo(() => stateFromPlaces(tree, places), [tree, places]);
+  const actual = useMemo(() => (result ? stateFromPlaces(tree, result) : undefined), [tree, result]);
+  const [picking, setPicking] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(1);
   const [zoom, setZoom] = useState<number | null>(null);
@@ -87,10 +105,29 @@ export function BracketSheet({ tree, state, onChange, result }: Props) {
     };
   }, []);
 
-  const inTree = new Set(Object.values(state));
-  const champion = state[tree.final.id];
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setPicking(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [picking]);
+
+  const placeOf = placeMap(places);
+  const actualPlaceOf = result ? placeMap(result) : undefined;
   const name = (id: string) => entrants.get(id)?.name ?? "—";
+  const describe = (changes: PlaceChange[]) => changes
+    .map((c) => `${shortName(name(c.athleteId))} : ${SHORT[c.from]} → ${c.to ? SHORT[c.to] : "retiré"}`).join(" · ");
   const top = (y: number) => y - SHEET.boxHeight / 2;
+  const open = onChange ? (athleteId: string) => setPicking(athleteId) : undefined;
+
+  function choose(athleteId: string, place: Place | null) {
+    if (!onChange) return;
+    const next = setPlace(tree, places, athleteId, place);
+    onChange(next.places);
+    setPicking(null);
+    const who = shortName(name(athleteId));
+    setNotice(`${place ? `${who} : ${SHORT[place]}` : `${who} retiré`}${next.changes.length ? `. Change aussi : ${describe(next.changes)}` : ""}`);
+  }
 
   return (
     <div className="bracket-sheet">
@@ -100,6 +137,7 @@ export function BracketSheet({ tree, state, onChange, result }: Props) {
         <button type="button" onClick={() => setZoom(clamp(scale * 1.25))} aria-label="Zoomer">+</button>
         <span className="muted small">{Math.round(scale * 100)} %</span>
       </div>
+      {notice && <p className="sheet-notice small" role="status">{notice}</p>}
       <div ref={viewport} className="sheet-viewport">
         <div style={{ width: layout.width * scale, height: layout.height * scale, position: "relative" }}>
           <div className="sheet-canvas" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
@@ -114,19 +152,20 @@ export function BracketSheet({ tree, state, onChange, result }: Props) {
               if (box.kind === "chip") return <span key={`chip-${box.code}-${box.side}`} className="sheet-chip" style={style}>{box.code}</span>;
               if (box.kind === "athlete") {
                 const entrant = entrants.get(box.athleteId)!;
+                const place = placeOf.get(box.athleteId);
+                const verdict = actualPlaceOf && place ? (actualPlaceOf.get(box.athleteId) === place ? "is-right" : "is-wrong") : "";
                 return (
                   <button key={box.athleteId} type="button" disabled={!onChange} style={style}
-                    className={`sheet-athlete side-${box.side} ${inTree.has(box.athleteId) ? "is-picked" : ""} ${champion === box.athleteId ? "is-champion" : ""}`}
-                    onClick={() => onChange?.(advance(tree, state, box.athleteId))}
-                    title={onChange ? "Faire avancer d'un tour" : undefined}>
+                    className={`sheet-athlete side-${box.side} ${place ? `has-place path-${place}` : ""}`}
+                    onClick={() => open?.(box.athleteId)} title={onChange ? "Choisir sa place" : undefined}>
                     <span className="seed">{entrant.seed ?? ""}</span>
                     <span className="name">{entrant.name}</span>
                     <span className="country">{entrant.country ?? ""}</span>
+                    {place && <span className={`place place-${place} ${verdict}`}>{SHORT[place]}</span>}
                   </button>
                 );
               }
               const occupant = state[box.key];
-              const verdict = result && occupant ? (result[box.key] === occupant ? "is-right" : "is-wrong") : "";
               if (!occupant) {
                 return (
                   <span key={box.key} style={style} className={`sheet-slot is-empty ${box.level === 0 ? "is-final" : ""}`}
@@ -135,23 +174,50 @@ export function BracketSheet({ tree, state, onChange, result }: Props) {
                   </span>
                 );
               }
+              const verdict = actual ? (actual[box.key] === occupant ? "is-right" : "is-wrong") : "";
               return (
-                <span key={box.key} style={style}
-                  className={`sheet-slot is-filled ${box.level === 0 ? "is-final" : ""} ${occupant === champion ? "is-champion" : ""} ${verdict}`}>
-                  <button type="button" className="slot-name" disabled={!onChange || box.level === 0}
-                    onClick={() => onChange?.(advance(tree, state, occupant))} title={name(occupant)}>
-                    {box.level === 0 ? name(occupant) : shortName(name(occupant))}
-                  </button>
-                  {onChange && (
-                    <button type="button" className="slot-clear" aria-label={`Retirer ${name(occupant)}`}
-                      onClick={() => onChange(clearSlot(tree, state, box.key))}>×</button>
-                  )}
-                </span>
+                <button key={box.key} type="button" style={style} disabled={!onChange} title={name(occupant)}
+                  className={`sheet-slot is-filled path-${placeOf.get(occupant)} ${box.level === 0 ? "is-final" : ""} ${verdict}`}
+                  onClick={() => open?.(occupant)}>
+                  {box.level === 0 ? name(occupant) : shortName(name(occupant))}
+                </button>
               );
             })}
           </div>
         </div>
       </div>
+
+      {picking && (
+        <div className="sheet-backdrop" onClick={() => setPicking(null)}>
+          <div className="sheet" role="dialog" aria-label={`Place de ${name(picking)}`} onClick={(e) => e.stopPropagation()}>
+            <p className="sheet-title">{name(picking)}
+              <span className="muted small">{[entrants.get(picking)?.country, entrants.get(picking)?.seed ? `tête de série ${entrants.get(picking)?.seed}` : ""].filter(Boolean).join(" · ")}</span>
+            </p>
+            <div className="place-options">
+              {PLACES.filter((place) => possible.has(place)).map((place) => {
+                const allowed = allowedPlaces(tree, picking).includes(place);
+                const current = placeOf.get(picking) === place;
+                const preview = allowed && !current ? setPlace(tree, places, picking, place).changes : [];
+                return (
+                  <button key={place} type="button" disabled={!allowed} onClick={() => choose(picking, place)}
+                    className={`place-option ${current ? "is-current" : ""}`} aria-pressed={current}>
+                    <span className={`place place-${place}`}>{SHORT[place]}</span>
+                    <span className="option-text">
+                      <span>{OPTION[place]}</span>
+                      {!allowed && <small className="muted">{place === "quarter" ? "Entre directement en demi-finale" : "Entre directement en finale"}</small>}
+                      {preview.length > 0 && <small className="option-effect">Change aussi : {describe(preview)}</small>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="sheet-actions">
+              {placeOf.has(picking) && <button type="button" className="danger" onClick={() => choose(picking, null)}>Retirer sa place</button>}
+              <button type="button" onClick={() => setPicking(null)}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
