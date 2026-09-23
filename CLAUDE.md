@@ -10,7 +10,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Toutes les interfaces, admin comprise, doivent être utilisables sur smartphone (demande de Mehdi du 23/09/2026) : tester chaque écran en 375 px de large, cibles tactiles de 44 px, champs en 16 px, pas de défilement horizontal de la page.
 - Hiérarchie : compétition > jour > division ; une division = un tirage = un arbre.
 - Cycle de vie PAR DIVISION : brouillon → contrôle → ouverte (après la pesée) → verrouillée (heure de début, ex. 9 h, appliquée côté serveur) → résultats saisis → clôturée.
-- Pronostic par division : 1er, 2e, deux 3e, quatre battus en quart ; saisie par clic dans l'arbre ; cohérence avec l'arbre imposée.
+- Pronostic par division : 1er, 2e, deux 3e, quatre battus en quart ; cohérence avec l'arbre imposée.
+- Saisie (décision du 23/09/2026) : feuille de tirage de la même forme que le PDF (moitiés face à face, finale au centre, numéros de combat) ; on fait avancer les athlètes à partir des quarts (quarts → demies → finale → vainqueur), chaque case n'accepte que sa branche ; les places se déduisent de l'arbre ; sur téléphone, la feuille entière avec zoom (boutons et pincement).
 - Barème : socle + bonus d'audace selon la tête de série (proposition, voir `DEFAULT_SCORING` dans `src/prediction.ts`).
 - Classements : par compétition et général, cumul brut, permanent ; départage : vainqueurs exacts puis ancienneté.
 - Pronostic incomplet au verrouillage : scoré sur les places remplies (décision du 23/09/2026).
@@ -49,7 +50,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - `npm run dev` : app contre le vrai projet (`localhost` n'est pas un domaine autorisé pour la connexion Google) ; `npm run build` : version compilée dans `dist/` (sans le code du mode démo).
 
 ## App web (`web/`, phase 1)
-- Structure : `src/App.tsx` (routes), `router.tsx` (navigation par l'URL), `session.tsx` (utilisateur, pseudo, rôle admin), `data.ts` (toutes les lectures et écritures Firestore), `pages/` (joueur), `pages/admin/`, `components/BracketPicker.tsx` (arbre à toucher, pronostic et résultats), `control/` (écran de contrôle).
+- Arbre : `src/bracket-tree.ts` (arbre depuis les numéros de combat, avancement, places ↔ arbre), `src/bracket-layout.ts` (géométrie de la feuille), `web/src/components/BracketSheet.tsx` (feuille interactive, joueur et résultats admin). Le pronostic enregistre aussi `tree` (l'arbre rempli, pour les choix encore sans place) ; les points viennent de `picks`.
+- Structure : `src/App.tsx` (routes), `router.tsx` (navigation par l'URL), `session.tsx` (utilisateur, pseudo, rôle admin), `data.ts` (toutes les lectures et écritures Firestore), `pages/` (joueur), `pages/admin/`, `components/BracketSheet.tsx` et `PicksSummary.tsx`, `control/` (écran de contrôle).
 - Joueur : accueil, compétition (divisions par jour, fait / à faire, compte à rebours), division (pronostic au toucher, cohérence imposée, enregistrement jusqu'au verrouillage, points détaillés après résultats), classements, compte (pseudo).
 - Admin : compétitions (création, publication), divisions (statut, heure de verrouillage locale, suppression), import d'un PDF → écran de contrôle → « Publier » (jour, heure de verrouillage, statut ; republier un arbre inchangé garde la version et les pronostics, un arbre corrigé passe à la version suivante ; une division avec résultats garde son statut et son résultat), suppression d'une compétition (en cascade : pronostics, divisions, classement ; confirmation en retapant le nom ; classement général recalculé), suppression d'une division avec ses pronostics, résultats saisis dans l'arbre → points de chaque pronostic → classements de la compétition et général (`src/scoring.ts`).
 - Le moteur PDF n'est chargé que sur la page d'import (le bundle des joueurs ne le contient pas).

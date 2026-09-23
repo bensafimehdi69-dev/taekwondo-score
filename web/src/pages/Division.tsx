@@ -1,20 +1,22 @@
-import { useState } from "react";
-import { bracketOf, emptyPlaces, PLACE_LABELS, PLACES, picksFromPlaces, resultFromPlaces, type Places } from "../../../src/model.ts";
+import { useMemo, useState } from "react";
+import { buildTree, placesFromState, sanitizeState, stateFromPlaces, type TreeState } from "../../../src/bracket-tree.ts";
+import { bracketOf, PLACE_LABELS, PLACES, picksFromPlaces, resultFromPlaces } from "../../../src/model.ts";
 import { scorePrediction, validatePrediction } from "../../../src/prediction.ts";
-import { BracketPicker, PicksSummary } from "../components/BracketPicker.tsx";
+import { BracketSheet } from "../components/BracketSheet.tsx";
+import { PicksSummary } from "../components/PicksSummary.tsx";
 import { getCompetition, getDivision, getPrediction, savePrediction } from "../data.ts";
 import { errorMessage, formatCountdown, formatDay, formatLocalTime, formatPoints } from "../format.ts";
 import { Link, usePath } from "../router.tsx";
 import { useSession } from "../session.tsx";
 import { useAsync, useNow } from "../useAsync.ts";
 
-const same = (a: Places, b: Places) => PLACES.every((p) => a[p].join() === b[p].join());
+const sameState = (a: TreeState, b: TreeState) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
 
 export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const { user } = useSession();
   const path = usePath();
   const now = useNow(10_000);
-  const [draft, setDraft] = useState<Places | null>(null);
+  const [draft, setDraft] = useState<TreeState | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const { data, error, loading, reload } = useAsync(async () => {
@@ -22,26 +24,33 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
     const prediction = user && division ? await getPrediction(cid, did, user.uid) : null;
     return { competition, division, prediction };
   }, [cid, did, user?.uid]);
+  const loaded = data?.division;
+  const bracket = useMemo(() => (loaded ? bracketOf(did, loaded) : null), [loaded, did]);
+  const tree = useMemo(() => (bracket ? buildTree(bracket) : null), [bracket]);
 
   if (loading && !data) return <main className="page"><p className="muted">Chargement…</p></main>;
-  if (error || !data?.division || !data.competition) {
+  if (error || !data?.division || !data.competition || !bracket || !tree) {
     return <main className="page"><h1>Division indisponible</h1><p className="muted">{error ?? "Ce tirage n'est pas encore publié."}</p><Link to={`/competitions/${cid}`}>Retour à la compétition</Link></main>;
   }
-  const { competition, division, prediction } = data;
-  const bracket = bracketOf(did, division);
-  const limits = division.expected;
-  const saved = prediction?.picks ?? emptyPlaces();
-  const places = draft ?? saved;
+  const { competition, prediction } = data;
+  const current = data.division;
+  const limits = current.expected;
+  // Arbre enregistré (ou reconstitué depuis les places d'un ancien pronostic), nettoyé si le tirage a été corrigé.
+  const saved = prediction ? sanitizeState(tree, prediction.tree ?? stateFromPlaces(tree, prediction.picks)) : {};
+  const state = draft ?? saved;
+  const places = placesFromState(tree, state);
+  const division = current;
   const locked = now >= division.lockAt.getTime();
   const hasResults = division.status === "results" || division.status === "closed";
   const editable = !!user && division.status === "open" && !locked;
   const check = validatePrediction(bracket, picksFromPlaces(places), { requireComplete: false });
   const chosen = PLACES.reduce((n, p) => n + places[p].length, 0);
   const total = PLACES.reduce((n, p) => n + limits[p], 0);
-  const dirty = draft !== null && !same(draft, saved);
+  const dirty = draft !== null && !sameState(draft, saved);
   const stale = !!prediction && prediction.bracketVersion !== division.version;
   const outcome = division.result ? resultFromPlaces(division.result) : undefined;
   const lines = outcome && prediction ? scorePrediction(bracket, picksFromPlaces(prediction.picks), outcome).lines : [];
+  const actual = division.result ? stateFromPlaces(tree, division.result) : undefined;
   const nameOf = (id: string) => bracket.entrants.find((e) => e.athleteId === id)?.name ?? "—";
 
   async function save() {
@@ -49,7 +58,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
     setBusy(true);
     setMessage(null);
     try {
-      await savePrediction(cid, did, user.uid, places, division.version);
+      await savePrediction(cid, did, user.uid, places, division.version, state);
       setDraft(null);
       setMessage({ tone: "ok", text: "Pronostic enregistré. Tu peux le modifier jusqu'au verrouillage." });
       reload();
@@ -77,7 +86,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
       {stale && !hasResults && (
         <p className="notice warn">Le tirage a été corrigé depuis ton pronostic. Vérifie tes choix{editable ? " et enregistre à nouveau" : ""}.</p>
       )}
-      {editable && <p className="muted small">Touche un athlète pour lui donner une place : vainqueur, finaliste, bronze (2) ou battu en quart (4).</p>}
+      {editable && <p className="muted small">Touche un athlète pour le faire avancer d'un tour : quarts, demies, finale, vainqueur. Touche une case remplie pour la faire avancer encore, × pour la vider. Zoome avec deux doigts ou les boutons.</p>}
 
       {hasResults && prediction?.score && (
         <div className="score-card">
@@ -86,8 +95,8 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
         </div>
       )}
 
-      {division.result && <p className="muted small">Pastille pleine : ton choix · pastille vide : résultat réel · barré : choix manqué.</p>}
-      <BracketPicker bracket={bracket} places={places} limits={limits} result={division.result}
+      {division.result && <p className="muted small">Case verte : juste · case rouge : manquée.</p>}
+      <BracketSheet tree={tree} state={state} result={actual}
         onChange={editable ? (next) => { setDraft(next); setMessage(null); } : undefined} />
 
       {(user || hasResults) && (

@@ -102,6 +102,12 @@ export function validatePrediction(
   for (const [, n] of countBy(quarterPicks, (e) => e.quarter)) {
     if (n > 1) issues.push("Deux battus en quart viennent du même quart de finale.");
   }
+  // Les deux adversaires d'un quart viennent de ses deux branches (huitièmes) : deux athlètes de la même branche
+  // se rencontrent avant les quarts. Un athlète qui entre directement en quart forme sa propre branche.
+  const branch = (e: BracketEntrant) => (e.quarter ? `${e.quarter}|${e.path[e.path.length - 4] ?? `direct:${e.athleteId}`}` : undefined);
+  for (const [, n] of countBy([...medalists, ...quarterPicks], branch)) {
+    if (n > 1) issues.push("Deux quarts de finalistes viennent de la même branche : ils se rencontrent avant les quarts.");
+  }
   if (requireComplete) {
     const medalQuarters = new Set(medalists.map(quarterKey));
     for (const e of quarterPicks) {

@@ -77,3 +77,16 @@ test("classement : cumul brut puis départage", () => {
   ]);
   assert.deepEqual(ranked.map((r) => r.userId), ["u3", "u2", "u1"]);
 });
+
+test("refuse deux quarts de finalistes issus de la même branche (ils se rencontrent avant les quarts)", async () => {
+  const { athlete } = await import("./fixtures-bracket.mjs");
+  // Tableau de 16 : huitièmes 101-108, quarts 201-204, demies 301-302, finale 401. A et B s'affrontent au combat 101.
+  const draw16 = { pageCount: 1, ocrPageCount: 0, warnings: [], athletes: "ABCDEFGHIJKLMNOP".split("").map((id, i) =>
+    athlete(id, i < 8 ? "left" : "right", 100 + (i % 8) * 40, [String(101 + (i >> 1)), String(201 + (i >> 2)), String(301 + (i >> 3)), "401"])) };
+  const [div16] = buildBrackets(draw16);
+  const ok = validatePrediction(div16, picks("A", "I", ["E", "M"], ["C", "G", "K", "O"]));
+  assert.deepEqual(ok, { valid: true, issues: [] });
+  const sameBranch = validatePrediction(div16, picks("A", "I", ["E", "M"], ["B", "G", "K", "O"]));
+  assert.equal(sameBranch.valid, false);
+  assert.ok(sameBranch.issues.some((i) => i.includes("même branche")));
+});
