@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { renderPdfPagePreview } from "../../src/pdf-reader.ts";
 
-const ZOOMS = [{ label: "Ajuster", value: 1 }, { label: "150 %", value: 1.5 }, { label: "200 %", value: 2 }];
+const ZOOMS = [{ label: "Ajuster", value: 1 }, { label: "150 %", value: 1.5 }, { label: "200 %", value: 2 }, { label: "300 %", value: 3 }];
 
 /** Page source du PDF, rendue localement : le fichier ne quitte jamais le navigateur. */
 export function PdfPreview({ file, pages }: { file: File; pages: number[] }) {

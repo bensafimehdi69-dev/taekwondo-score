@@ -157,9 +157,48 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .editor .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
 .editor-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.back, .segmented.pane-tabs { display: none; }
+
+/* Petit écran (smartphone, tablette en portrait) : liste et division séparées, onglets arbre / PDF,
+   correction en panneau bas, validation en barre fixe à portée de pouce. */
 @media (max-width: 1000px) {
-  .workspace { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .sidebar ul { max-height: 30vh; }
-  .split { grid-template-columns: 1fr; }
-  .pdf-pane { min-height: 50vh; }
+  .app { height: 100dvh; }
+  .topbar { padding: 8px 12px; gap: 8px; }
+  .topbar .file, .hide-narrow { display: none; }
+  button { min-height: 44px; }
+  button.link { min-height: 32px; }
+  input { font-size: 16px; min-height: 44px; }
+  .check input { min-height: auto; width: 22px; height: 22px; }
+
+  .workspace { grid-template-columns: 1fr; }
+  .workspace[data-view="list"] > main { display: none; }
+  .workspace[data-view="division"] .sidebar { display: none; }
+  .sidebar { border-right: none; }
+  .division { padding: 12px; }
+
+  .division-panel { overflow-y: auto; padding: 10px 12px calc(84px + env(safe-area-inset-bottom)); }
+  .division-panel > * { flex-shrink: 0; }
+  .division-panel.is-editing { padding-bottom: 70dvh; }
+  .division-head { flex-direction: column; gap: 6px; }
+  .back { display: inline-flex; align-self: flex-start; }
+  .head-actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; flex-wrap: nowrap;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
+  .head-actions button { flex: 1; }
+  .division-panel.is-editing .head-actions { display: none; }
+
+  .segmented.pane-tabs { display: flex; margin: 0; }
+  .split { grid-template-columns: 1fr; flex: none; }
+  .split.show-pdf .bracket-pane, .split.show-bracket .pdf-pane { display: none; }
+  .pdf-pane { height: 72dvh; }
+  .bracket-pane { overflow: visible; }
+  .entrant { min-height: 44px; }
+
+  .editor {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; max-height: 80dvh; overflow-y: auto;
+    border-radius: 14px 14px 0 0; border: 1px solid var(--border); box-shadow: 0 -8px 24px rgb(0 0 0 / 0.2);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
 }

@@ -22,7 +22,7 @@ export function EntrantEditor({ division, original, athleteId, onChange, onMove,
   return (
     <aside className="editor" aria-label="Correction de l'athlète">
       <header>
-        <strong>{read ? `Athlète n° ${entrant.position}` : "Athlète ajouté"}</strong>
+        <strong>{entrant.name || (read ? `Athlète n° ${entrant.position}` : "Athlète ajouté")}</strong>
         <button className="link" onClick={onClose}>Fermer</button>
       </header>
       <label>Nom

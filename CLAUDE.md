@@ -7,6 +7,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 ## Décisions prises
 - Web app d'abord (tester le concept), app iOS SwiftUI ensuite, sur le MÊME projet Firebase (mêmes données, mêmes règles).
 - Deux interfaces : admin (crée les compétitions) et utilisateur (compte obligatoire pour pronostiquer).
+- Toutes les interfaces, admin comprise, doivent être utilisables sur smartphone (demande de Mehdi du 23/09/2026) : tester chaque écran en 375 px de large, cibles tactiles de 44 px, champs en 16 px, pas de défilement horizontal de la page.
 - Hiérarchie : compétition > jour > division ; une division = un tirage = un arbre.
 - Cycle de vie PAR DIVISION : brouillon → contrôle → ouverte (après la pesée) → verrouillée (heure de début, ex. 9 h, appliquée côté serveur) → résultats saisis → clôturée.
 - Pronostic par division : 1er, 2e, deux 3e, quatre battus en quart ; saisie par clic dans l'arbre ; cohérence avec l'arbre imposée.
@@ -46,6 +47,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Import d'un PDF dans le navigateur (OCR compris), PDF source et arbre reconstruit côte à côte, correction de chaque athlète et du combat de finale (`src/bracket-editing.ts`), validation explicite par division.
 - Une anomalie de structure bloque la validation ; une alerte de lecture exige la case « comparé au PDF ». Rien n'est enregistré en ligne : export JSON local (`taekwondo-score/controle@1`).
 - Bilan affiché : divisions validées « justes sans correction », mesure du critère de la phase 0.
+- Sur petit écran (≤ 1000 px) : liste et division sur deux écrans, onglets « Arbre reconstruit » / « PDF source », correction en panneau bas, validation en barre fixe.
 
 ## État au 23/09/2026
 - Fait : moteur reconstitué, tête de série (`seed`), arbre par division (`src/bracket-builder.ts`), règles de pronostic (`src/prediction.ts`), projet Firebase créé (Auth, Firestore fermé, script admin).
