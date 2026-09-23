@@ -2,7 +2,7 @@
 // puis repris par la page de saisie des résultats de la division. Rien n'est enregistré en ligne avant sa validation.
 import type { Places } from "../../src/model.ts";
 
-export type ImportedResult = { places: Places; fileName: string; deduced: string[]; issues: string[] };
+export type ImportedResult = { places: Places; fileName: string; deduced: string[]; fromWinners?: string[]; issues: string[] };
 
 const key = (cid: string, did: string) => `tkd:resultat-lu:${cid}:${did}`;
 

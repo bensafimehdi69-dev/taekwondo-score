@@ -1,14 +1,17 @@
 /**
  * Lecture des résultats dans un PDF « tirage avec résultats » (étape 1, décision du 23/09/2026) :
  * le tableau de classement imprimé sous l'arbre (« Classification », « Prize winners: ») donne 1er, 2e, 3e, 3e
- * (parfois les 5es). Les battus en quart manquants ne sont déduits de l'arbre que lorsqu'ils sont certains
- * (adversaire de quart entré directement). Rien n'est enregistré : l'admin vérifie chaque division.
+ * (parfois les 5es). Étape 2 : le vainqueur de chaque combat, réimprimé en abrégé à la sortie du combat
+ * (« OKAZAKI S. (JPN) »), complète les places manquantes (battus en quart surtout), et donne les résultats
+ * des PDF sans tableau de classement. Les battus en quart restants ne sont déduits de l'arbre que lorsqu'ils
+ * sont certains. Rien n'est enregistré : l'admin vérifie chaque division.
  */
 import type { BracketDivision } from "./bracket-builder.ts";
-import { buildTree, chainOf, setPlace, type BracketTree, type TreeFight, type TreeNode } from "./bracket-tree.ts";
+import { buildTree, chainOf, placesFromState, setPlace, PLAYABLE_LEVEL, type BracketTree, type TreeFight, type TreeNode, type TreeState } from "./bracket-tree.ts";
 import type { Places } from "./model.ts";
 import type { Place } from "./prediction.ts";
 import { sameAthlete } from "./source-audit.ts";
+import { extractMarkers } from "./team-path-parser.ts";
 import type { ParsedPage, VisualTextItem } from "./types.ts";
 
 export type RankingRow = { rank: number; name: string; country?: string };
@@ -72,6 +75,81 @@ export function readRankings(pages: ParsedPage[]): Ranking[] {
   return rankings;
 }
 
+/** Vainqueur réimprimé dans l'arbre : nom abrégé par des initiales, pays entre parenthèses (« TSANG C. H. (HKG) », « ABAD I.(ESP) »). */
+const WINNER_MARK = /^(.+?\s(?:-?[A-Z][a-z]?[.-]\s?)+)\s*\(([A-Z]{3}|WT)\)\s*$/;
+
+/** `fight` : numéro du combat imprimé juste à côté du nom (le vainqueur s'écrit collé à la case du combat). */
+export type WinnerMark = { page: number; name: string; country: string; fight?: string };
+
+export function readWinnerMarks(pages: ParsedPage[]): WinnerMark[] {
+  return pages.flatMap((page) => {
+    const markers = extractMarkers(page);
+    return page.items.flatMap((item) => {
+      const match = item.text.replace(/\s+/g, " ").trim().match(WINNER_MARK);
+      if (!match || RANK_START.test(item.text)) return [];
+      const y = item.y + item.height / 2;
+      // Case du combat sur la même ligne, collée au début (moitié gauche) ou à la fin (moitié droite) du nom.
+      const near = markers.map((m) => ({ m, gap: Math.min(Math.abs(m.x - item.x), Math.abs(m.x - (item.x + item.width))), dy: Math.abs(m.y - y) }))
+        .filter((c) => c.dy <= 8 && c.gap <= 45).sort((a, b) => a.gap + a.dy - (b.gap + b.dy));
+      const fight = near.length && (near.length === 1 || near[1].gap + near[1].dy - (near[0].gap + near[0].dy) > 6) ? near[0].m.code : undefined;
+      return [{ page: page.pageNumber, name: match[1].trim(), country: match[2], ...(fight ? { fight } : {}) }];
+    });
+  });
+}
+
+const fightsOf = (node: TreeNode): TreeFight[] => (node.kind === "fight" ? [node, ...node.children.flatMap(fightsOf)] : []);
+const athletesOf = (node: TreeNode): string[] => (node.kind === "athlete" ? [node.entrant.athleteId] : node.children.flatMap(athletesOf));
+
+/**
+ * Vainqueur de chaque combat jouable d'après les noms réimprimés, par deux méthodes indépendantes :
+ * le nom collé à la case du combat, et le décompte (l'athlète de la branche qui a au moins autant de victoires que de combats
+ * sur son parcours jusqu'à celui-ci ; faussé par les exemptions réimprimées, d'où la priorité à la case).
+ * Seulement sur les pages où ces noms sont surtout ceux de la division ; si les deux méthodes se contredisent, rien.
+ */
+export function winnersFromMarks(division: BracketDivision, tree: BracketTree, marks: WinnerMark[]): { state: TreeState; pages: number[] } {
+  const owner = (mark: WinnerMark) => {
+    const found = division.entrants.filter((e) => sameAthlete(mark, e));
+    return found.length === 1 ? found[0].athleteId : undefined;
+  };
+  const pages = [...new Set(marks.map((m) => m.page))].filter((page) => {
+    const onPage = marks.filter((m) => m.page === page);
+    const mine = onPage.filter((m) => owner(m)).length;
+    return mine >= 3 && mine * 2 >= onPage.length;
+  });
+  const wins = new Map<string, number>();
+  for (const mark of marks.filter((m) => pages.includes(m.page))) {
+    const id = owner(mark);
+    if (id) wins.set(id, (wins.get(id) ?? 0) + 1);
+  }
+  const state: TreeState = {};
+  if (!pages.length) return { state, pages };
+  const entrant = new Map(division.entrants.map((e) => [e.athleteId, e]));
+  const onPages = marks.filter((m) => pages.includes(m.page));
+  for (const fight of fightsOf(tree.final).filter((f) => f.level <= PLAYABLE_LEVEL)) {
+    const inBranch = athletesOf(fight);
+    const byBox = [...new Set(onPages.filter((m) => m.fight === fight.code).map(owner).filter((id): id is string => !!id && inBranch.includes(id)))];
+    const byCount = inBranch.filter((id) => {
+      const path = entrant.get(id)?.path ?? [];
+      const index = path.indexOf(fight.code);
+      const needed = index >= 0 ? index + 1 : fight === tree.final ? path.length + 1 : Infinity;
+      return (wins.get(id) ?? 0) >= needed;
+    });
+    const boxed = byBox.length === 1 ? byBox[0] : undefined;
+    const counted = byCount.length === 1 ? byCount[0] : undefined;
+    if (boxed && counted && boxed !== counted) continue;
+    const winner = boxed ?? counted;
+    if (winner) state[fight.id] = winner;
+  }
+  // Cohérence : le vainqueur d'un combat doit avoir gagné le combat précédent de sa branche s'il est connu.
+  for (const fight of fightsOf(tree.final)) {
+    const winner = state[fight.id];
+    if (!winner) continue;
+    const child = fight.children.find((c) => c.kind === "fight" && athletesOf(c).includes(winner));
+    if (child && state[child.id] && state[child.id] !== winner) delete state[fight.id];
+  }
+  return { state, pages };
+}
+
 const PLACE_OF_RANK: Record<number, Place | undefined> = { 1: "gold", 2: "silver", 3: "bronze", 5: "quarter" };
 
 export type DivisionResult = {
@@ -79,6 +157,8 @@ export type DivisionResult = {
   places: Places;
   /** Battus en quart déduits de l'arbre (pas lus dans le PDF). */
   deduced: string[];
+  /** Places trouvées grâce aux vainqueurs des combats réimprimés (étape 2). */
+  fromWinners: string[];
   pages: number[];
   /** Lignes du classement sans athlète correspondant dans la division. */
   unmatched: RankingRow[];
@@ -104,8 +184,8 @@ function quarterOpponent(tree: BracketTree, athleteId: string): string | undefin
   return other?.kind === "athlete" ? other.entrant.athleteId : undefined;
 }
 
-/** Résultat d'une division à partir du classement qui lui correspond. */
-export function divisionResult(division: BracketDivision, ranking: Ranking): DivisionResult {
+/** Résultat d'une division : son classement (s'il y en a un), complété par les vainqueurs des combats réimprimés. */
+export function divisionResult(division: BracketDivision, ranking: Ranking | null, marks: WinnerMark[] = []): DivisionResult {
   const tree = buildTree(division);
   let places: Places = { gold: [], silver: [], bronze: [], quarter: [] };
   const issues: string[] = [];
@@ -119,12 +199,25 @@ export function divisionResult(division: BracketDivision, ranking: Ranking): Div
     places = next.places;
     return true;
   };
-  for (const row of [...ranking.rows].sort((a, b) => a.rank - b.rank)) {
+  for (const row of [...(ranking?.rows ?? [])].sort((a, b) => a.rank - b.rank)) {
     const place = PLACE_OF_RANK[row.rank];
     const entrant = division.entrants.find((e) => sameAthlete(row, e));
     if (!entrant) { unmatched.push(row); continue; }
     if (!place) continue;
     apply(entrant.athleteId, place, `${row.rank} ${row.name}`);
+  }
+  // Étape 2 : places issues des vainqueurs des combats, pour ce que le classement ne donne pas.
+  const winners = winnersFromMarks(division, tree, marks);
+  const fromWinners: string[] = [];
+  const read = placesFromState(tree, winners.state);
+  const nameOf = (id: string) => division.entrants.find((e) => e.athleteId === id)?.name ?? id;
+  for (const place of ["gold", "silver", "bronze", "quarter"] as Place[]) {
+    for (const athleteId of read[place]) {
+      const current = Object.entries(places).find(([, ids]) => ids.includes(athleteId))?.[0];
+      if (current === place) continue;
+      if (current) { issues.push(`${nameOf(athleteId)} : ${current} au classement, ${place} d'après les combats ; le classement est gardé.`); continue; }
+      if (apply(athleteId, place, `${nameOf(athleteId)} (vainqueurs des combats)`)) fromWinners.push(athleteId);
+    }
   }
   const deduced: string[] = [];
   for (const athleteId of [...places.gold, ...places.silver, ...places.bronze]) {
@@ -133,20 +226,23 @@ export function divisionResult(division: BracketDivision, ranking: Ranking): Div
     if (apply(opponent, "quarter", `Battu en quart déduit`)) deduced.push(opponent);
   }
   if (unmatched.length) issues.push(`${unmatched.length} nom(s) du classement introuvable(s) dans la division : ${unmatched.map((r) => `${r.rank} ${r.name}`).join(", ")}.`);
-  return { places, deduced, pages: ranking.pages, unmatched, issues };
+  const pages = [...new Set([...(ranking?.pages ?? []), ...winners.pages])].sort((a, b) => a - b);
+  return { places, deduced, fromWinners, pages, unmatched, issues };
 }
 
 /**
  * Associe chaque division au classement qui la concerne : celui dont les noms correspondent le mieux à ses athlètes
  * (au moins deux, et sans égalité). Une division sans classement sûr n'a pas de résultat : rien n'est deviné.
  */
-export function matchRankings(divisions: Array<{ id: string; bracket: BracketDivision }>, rankings: Ranking[]) {
+export function matchRankings(divisions: Array<{ id: string; bracket: BracketDivision }>, rankings: Ranking[], marks: WinnerMark[] = []) {
   return divisions.map(({ id, bracket }) => {
     const scored = rankings.map((ranking) => ({ ranking,
       hits: ranking.rows.filter((row) => bracket.entrants.some((e) => sameAthlete(row, e))).length }))
       .filter((s) => s.hits >= 2).sort((a, b) => b.hits - a.hits);
     const best = scored[0];
-    if (!best || (scored[1] && scored[1].hits === best.hits)) return { id, result: null, ambiguous: !!best };
-    return { id, result: divisionResult(bracket, best.ranking), ambiguous: false };
+    const ambiguous = !!best && !!scored[1] && scored[1].hits === best.hits;
+    const result = divisionResult(bracket, ambiguous || !best ? null : best.ranking, marks);
+    const found = Object.values(result.places).some((ids) => ids.length);
+    return { id, result: found ? result : null, ambiguous };
   });
 }
