@@ -4,7 +4,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import {
-  bracketOf, divisionId, picksFromPlaces, resultFromPlaces,
+  bracketOf, divisionId, picksFromPlaces, resultFromPlaces, sameBracket,
   type CompetitionDoc, type DivisionDoc, type DivisionStatus, type LeaderboardDoc, type Places, type PredictionDoc,
 } from "../../src/model.ts";
 import { rankEntries, scoreDivision, sumScores, type LeaderboardEntry } from "../../src/scoring.ts";
@@ -79,18 +79,27 @@ export async function getDivision(cid: string, did: string): Promise<WithId<Divi
   return snapshot.exists() ? withId<DivisionDoc>(snapshot.id, snapshot.data()) : null;
 }
 
+export type Publication = { id: string; version: number; outcome: "created" | "corrected" | "unchanged" };
+
 /**
- * Publie des divisions contrôlées. Republier le même tirage (même jour, catégorie, finale) met à jour
- * le même document et augmente sa version : les pronostics déjà faits restent liés à l'ancienne version.
+ * Publie des divisions contrôlées. Republier le même tirage (même jour, catégorie, finale) met à jour le même document.
+ * La version n'augmente que si l'arbre a changé : les pronostics déjà faits restent valables sinon.
  */
-export async function publishDivisions(cid: string, divisions: DivisionDoc[]): Promise<Array<{ id: string; version: number }>> {
-  const saved: Array<{ id: string; version: number }> = [];
+export async function publishDivisions(cid: string, divisions: DivisionDoc[]): Promise<Publication[]> {
+  const saved: Publication[] = [];
   for (const division of divisions) {
     const id = divisionId(division);
     const existing = await getDivision(cid, id);
-    const version = existing ? existing.version + 1 : 1;
-    await setDoc(doc(db, "competitions", cid, "divisions", id), { ...division, version });
-    saved.push({ id, version });
+    const outcome = !existing ? "created" : sameBracket(existing.bracket, division.bracket) ? "unchanged" : "corrected";
+    const version = !existing ? 1 : outcome === "corrected" ? existing.version + 1 : existing.version;
+    // Une division dont les résultats sont saisis garde son statut et son résultat : republier ne la rouvre pas.
+    const scored = existing && (existing.status === "results" || existing.status === "closed");
+    await setDoc(doc(db, "competitions", cid, "divisions", id), {
+      ...division, version,
+      ...(scored ? { status: existing.status } : {}),
+      ...(existing?.result && (scored || outcome === "unchanged") ? { result: existing.result } : {}),
+    });
+    saved.push({ id, version, outcome });
   }
   return saved;
 }

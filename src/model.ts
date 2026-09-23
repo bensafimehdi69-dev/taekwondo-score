@@ -135,6 +135,17 @@ export function bracketOf(id: string, doc: DivisionDoc<unknown>): BracketDivisio
   };
 }
 
+/**
+ * Même arbre ? Mêmes combats et mêmes athlètes, aux mêmes places. Sert à ne changer la version d'une division
+ * que si le tirage a vraiment changé : un pronostic reste lié à la version sur laquelle il a été fait.
+ */
+export function sameBracket(a: DivisionDoc<unknown>["bracket"], b: DivisionDoc<unknown>["bracket"]): boolean {
+  const entrant = (e: BracketEntrant) => [e.athleteId, e.name, e.country ?? "", e.seed ?? "", e.half ?? "", e.quarter ?? "", e.path.join(" ")].join("|");
+  return (a.finalFight ?? "") === (b.finalFight ?? "")
+    && a.semiFights.join() === b.semiFights.join() && a.quarterFights.join() === b.quarterFights.join()
+    && a.entrants.length === b.entrants.length && a.entrants.every((e, i) => entrant(e) === entrant(b.entrants[i]));
+}
+
 /** Identifiant stable d'une division dans sa compétition : republier le même tirage met à jour le même document. */
 export function divisionId(doc: Fields<DivisionDoc<unknown>, "day" | "category" | "bracket">): string {
   const slug = doc.category.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()

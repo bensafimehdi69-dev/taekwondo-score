@@ -4,6 +4,11 @@ import { ControlScreen } from "../../control/ControlScreen.tsx";
 import type { Session } from "../../control/control.ts";
 import { getCompetition, publishDivisions, type WithId } from "../../data.ts";
 import { errorMessage, formatDay } from "../../format.ts";
+
+/** Un refus du serveur à la publication vient des droits : le rôle admin n'est pas (ou plus) dans la session. */
+const publishError = (cause: unknown) => (cause as { code?: string })?.code === "permission-denied"
+  ? "Publication refusée par le serveur : ta session d'administrateur n'est pas reconnue. Déconnecte-toi, reconnecte-toi, puis réessaie."
+  : errorMessage(cause);
 import { Link } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
 import type { CompetitionDoc } from "../../../../src/model.ts";
@@ -27,6 +32,7 @@ function PublishButton({ cid, competition, session }: { cid: string; competition
   const [status, setStatus] = useState<DivisionStatus>("open");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [done, setDone] = useState(false);
   let lockAt: Date | null = null;
   try { lockAt = zonedTimeToUtc(day, time, competition.timezone); } catch { lockAt = null; }
   const lockInPast = !!lockAt && lockAt.getTime() <= Date.now();
@@ -41,10 +47,16 @@ function PublishButton({ cid, competition, session }: { cid: string; competition
         source: { fileName: session.fileName, sha256: session.sha256, pages: entry.current.pages },
       }));
       const saved = await publishDivisions(cid, docs);
-      const updated = saved.filter((s) => s.version > 1).length;
-      setMessage({ tone: "ok", text: `${saved.length} division(s) publiée(s)${updated ? `, dont ${updated} mise(s) à jour (nouvelle version)` : ""}.` });
+      const count = (outcome: string) => saved.filter((s) => s.outcome === outcome).length;
+      const parts = [
+        count("created") && `${count("created")} nouvelle(s)`,
+        count("corrected") && `${count("corrected")} corrigée(s) : nouvelle version, les joueurs concernés devront vérifier leur pronostic`,
+        count("unchanged") && `${count("unchanged")} déjà publiée(s) à l'identique : jour, heure et statut mis à jour, pronostics conservés`,
+      ].filter(Boolean);
+      setMessage({ tone: "ok", text: `Publication réussie. ${parts.join(" ; ")}.` });
+      setDone(true);
     } catch (cause) {
-      setMessage({ tone: "error", text: errorMessage(cause) });
+      setMessage({ tone: "error", text: publishError(cause) });
     } finally {
       setBusy(false);
     }
@@ -52,7 +64,7 @@ function PublishButton({ cid, competition, session }: { cid: string; competition
 
   return (
     <>
-      <button className="primary" disabled={!validated.length} onClick={() => { setOpen(true); setMessage(null); }}
+      <button className="primary" disabled={!validated.length} onClick={() => { setOpen(true); setMessage(null); setDone(false); }}
         title={validated.length ? undefined : "Valide d'abord au moins une division."}>
         Publier<span className="hide-narrow"> ({validated.length})</span>
       </button>
@@ -76,7 +88,11 @@ function PublishButton({ cid, competition, session }: { cid: string; competition
               {message && <p className={message.tone} role="status">{message.text}</p>}
             </div>
             <div className="sheet-actions">
-              <button className="primary" disabled={busy || !lockAt} onClick={publish}>{busy ? "Publication…" : "Publier"}</button>
+              {done ? (
+                <Link to={`/admin/competitions/${cid}`} className="button primary">Voir la compétition</Link>
+              ) : (
+                <button className="primary" disabled={busy || !lockAt} onClick={publish}>{busy ? "Publication…" : "Publier"}</button>
+              )}
               <button onClick={() => setOpen(false)} disabled={busy}>Fermer</button>
             </div>
           </div>
