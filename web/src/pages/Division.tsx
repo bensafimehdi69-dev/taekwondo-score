@@ -6,12 +6,24 @@ import { flagOf } from "../../../src/flags.ts";
 import { BracketSheet } from "../components/BracketSheet.tsx";
 import { PicksSummary } from "../components/PicksSummary.tsx";
 import { getCompetition, getDivision, getPrediction, listDivisions, myPredictions, savePrediction, type WithId } from "../data.ts";
-import { errorMessage, formatCountdown, formatDay, formatLocalTime, formatPoints } from "../format.ts";
+import { errorMessage, formatDay, formatLocalTime, formatPoints } from "../format.ts";
 import { Link, usePath } from "../router.tsx";
 import { useSession } from "../session.tsx";
 import { useAsync, useNow } from "../useAsync.ts";
 
 const samePlaces = (a: Places, b: Places) => PLACES.every((p) => [...a[p]].sort().join() === [...b[p]].sort().join());
+
+const TIP_KEY = "tkd:astuce-division-vue";
+const tipSeen = () => { try { return localStorage.getItem(TIP_KEY) === "1"; } catch { return false; } };
+
+/** Temps restant en gros chiffres : « 2 h 15 min », « 45 min », « 3 j ». */
+function bigCountdown(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} h ${String(minutes % 60).padStart(2, "0")}`;
+  return `${Math.floor(hours / 24)} j`;
+}
 
 /** Division suivante dans l'ordre de la compétition : d'abord une encore ouverte et sans pronostic, sinon la suivante tout court. */
 function nextDivision(divisions: WithId<DivisionDoc>[], mine: Map<string, PredictionDoc>, did: string, now: number) {
@@ -29,6 +41,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [tipHidden, setTipHidden] = useState(tipSeen);
   const { data, error, loading, reload } = useAsync(async () => {
     const [competition, division, divisions] = await Promise.all([getCompetition(cid), getDivision(cid, did), listDivisions(cid, false)]);
     const prediction = user && division ? await getPrediction(cid, did, user.uid) : null;
@@ -62,6 +75,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
   const lines = outcome && prediction ? scorePrediction(bracket, picksFromPlaces(prediction.picks), outcome).lines : [];
   const nameOf = (id: string) => bracket.entrants.find((e) => e.athleteId === id)?.name ?? "—";
   const next = nextDivision(data.divisions, data.mine, did, now);
+  const officialOnly = hasResults && !!division.result && !prediction;
 
   async function save() {
     if (!user || !check.valid) return;
@@ -82,14 +96,38 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
 
   return (
     <main className={`page ${editable ? "has-savebar" : ""}`}>
-      <p className="crumbs"><Link to={`/competitions/${cid}`}>{competition.name}</Link> · {formatDay(division.day, { weekday: "short", day: "numeric", month: "short" })}</p>
-      <h1>{division.category}</h1>
-      <p className="lock-line">
-        {hasResults ? "Résultats saisis : voici tes points."
-          : division.status !== "open" ? "Ce tirage n'est pas encore ouvert aux pronostics."
-          : locked ? `Verrouillée depuis ${formatLocalTime(division.lockAt, competition.timezone)} : les pronostics sont figés.`
-          : `Pronostics ouverts jusqu'à ${formatLocalTime(division.lockAt, competition.timezone)} · ${formatCountdown(division.lockAt.getTime() - now)}`}
-      </p>
+      <p className="crumbs"><Link to={`/competitions/${cid}`}>{competition.name}</Link></p>
+      <header className="home-header">
+        <p className="eyebrow">{formatDay(division.day, { weekday: "long", day: "numeric", month: "long" })} · {bracket.entrants.length} athlètes</p>
+        <h1>{division.category}</h1>
+      </header>
+
+      {/* Carte d'état : temps restant et places choisies, ou points une fois les résultats saisis. */}
+      {hasResults ? (
+        <section className="status-card tone-results">
+          <span className="chip chip-results">Résultats</span>
+          <span className="status-value">{prediction?.score ? `${formatPoints(prediction.score.total)} pts` : prediction ? "…" : "Pas joué"}</span>
+          <span className="status-label">{!prediction ? "Tu n'avais pas pronostiqué cette division."
+            : prediction.score ? (prediction.score.exactGolds ? "Vainqueur trouvé !" : "Vainqueur manqué") : "Points en cours de calcul."}</span>
+        </section>
+      ) : (
+        <section className={`status-card ${division.status === "open" && !locked ? "tone-open" : ""}`}>
+          <span className={`chip ${division.status !== "open" ? "chip-draft" : locked ? "chip-locked" : "chip-open"}`}>
+            {division.status !== "open" ? "Bientôt" : locked ? "Verrouillée" : "Ouverte"}</span>
+          <span className="status-value">{division.status !== "open" ? "Pas encore ouverte" : locked ? "Pronostics figés" : bigCountdown(division.lockAt.getTime() - now)}</span>
+          <span className="status-label">{division.status !== "open" ? "Le tirage s'ouvre aux pronostics après la pesée."
+            : locked ? `Depuis ${formatLocalTime(division.lockAt, competition.timezone)}.`
+            : `avant le verrouillage à ${formatLocalTime(division.lockAt, competition.timezone)}`}</span>
+          {user && division.status === "open" && (
+            <span className="progress" aria-label={`${chosen} places choisies sur ${total}`}>
+              {PLACES.flatMap((place) => Array.from({ length: limits[place] }, (_, i) => (
+                <span key={`${place}-${i}`} className={`progress-dot ${i < places[place].length ? `place-${place}` : ""}`} />
+              )))}
+              <span className="progress-text">{chosen} / {total}</span>
+            </span>
+          )}
+        </section>
+      )}
 
       {!user && division.status === "open" && !locked && (
         <p className="notice"><Link to={`/connexion?retour=${encodeURIComponent(path)}`}>Connecte-toi</Link> pour pronostiquer cette division.</p>
@@ -97,29 +135,40 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
       {stale && !hasResults && (
         <p className="notice warn">Le tirage a été corrigé depuis ton pronostic. Vérifie tes choix{editable ? " et enregistre à nouveau" : ""}.</p>
       )}
-      {editable && <p className="muted small">Touche un athlète et choisis sa place : 1er, 2e, 3e ou battu en quart. Son chemin se dessine tout seul dans l'arbre. Zoome avec deux doigts ou les boutons.</p>}
-
-      {hasResults && prediction?.score && (
-        <div className="score-card">
-          <strong>{formatPoints(prediction.score.total)} points</strong>
-          <span className="muted">{prediction.score.exactGolds ? "Vainqueur trouvé !" : "Vainqueur manqué"}</span>
-        </div>
+      {editable && !tipHidden && (
+        <aside className="tip">
+          <p><strong>Comment jouer</strong><br />Touche un athlète et choisis sa place : 1er, 2e, 3e ou battu en quart. Son chemin se dessine tout seul dans l'arbre. Zoome avec deux doigts ou les boutons.</p>
+          <button type="button" className="tip-close" aria-label="Fermer l'astuce" onClick={() => {
+            setTipHidden(true);
+            try { localStorage.setItem(TIP_KEY, "1"); } catch { /* préférence non gardée */ }
+          }}>×</button>
+        </aside>
       )}
 
-      {division.result && <p className="muted small">Vert : juste · rouge : manqué.</p>}
-      <BracketSheet tree={tree} places={places} result={division.result}
-        onChange={editable ? (places) => { setDraft(places); setMessage(null); setJustSaved(false); } : undefined} />
+      {/* Après les résultats : sans pronostic, l'arbre montre le résultat officiel ; avec, le pronostic corrigé (vert / rouge). */}
+      <section className="group">
+        <h2>{officialOnly ? "Résultat officiel" : "Tableau"}</h2>
+        {division.result && !officialOnly && <p className="muted small">Vert : juste · rouge : manqué.</p>}
+        <BracketSheet tree={tree} places={officialOnly ? division.result! : places} result={officialOnly ? undefined : division.result}
+          onChange={editable ? (places) => { setDraft(places); setMessage(null); setJustSaved(false); } : undefined} />
+      </section>
 
-      {(user || hasResults) && (
-        <section>
-          <h2>{hasResults ? "Ton pronostic" : "Récapitulatif"}</h2>
+      {user && !officialOnly && (
+        <section className="group">
+          <h2>{hasResults ? "Ton pronostic" : "Mon pronostic"}</h2>
           <PicksSummary bracket={bracket} places={places} limits={limits} />
           {!check.valid && <ul className="issues">{check.issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>}
         </section>
       )}
+      {division.result && (
+        <section className="group">
+          {!officialOnly && <h2>Résultat officiel</h2>}
+          <PicksSummary bracket={bracket} places={division.result} limits={limits} emptyLabel="Non renseigné" />
+        </section>
+      )}
 
       {lines.length > 0 && (
-        <section>
+        <section className="group">
           <h2>Détail des points</h2>
           <table className="points-table">
             <thead><tr><th>Athlète</th><th>Ton choix</th><th>Réel</th><th>Points</th></tr></thead>
@@ -137,9 +186,19 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
         </section>
       )}
 
-      <nav className="division-nav">
-        <Link to={`/competitions/${cid}`} className="button">← Toutes les divisions</Link>
-        {next && <Link to={`/competitions/${cid}/divisions/${next.division.id}`} className="button">{next.todo ? "Suivante à faire" : "Suivante"} : {next.division.category} →</Link>}
+      <nav className="group" aria-label="Autres divisions">
+        <ul className="division-list">
+          {next && (
+            <li><Link to={`/competitions/${cid}/divisions/${next.division.id}`} className="division-row">
+              <span className="muted small">{next.todo ? "Suivante à faire" : "Division suivante"}</span>
+              <span className="division-title">{next.division.category}</span>
+            </Link></li>
+          )}
+          <li><Link to={`/competitions/${cid}`} className="division-row">
+            <span className="division-title">Toutes les divisions</span>
+            <span className="muted small">{competition.name}</span>
+          </Link></li>
+        </ul>
       </nav>
 
       {editable && (justSaved && !dirty ? (
