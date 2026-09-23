@@ -13,7 +13,7 @@ export function AdminImportPage({ cid, day }: { cid: string; day?: string }) {
   const { data: competition } = useAsync(() => getCompetition(cid), [cid]);
   return (
     <ControlScreen publish={{
-      back: <Link to={`/admin/competitions/${cid}`} className="brand">← {competition?.name ?? "Compétition"}{day ? ` · ${formatDay(day, { weekday: "short", day: "numeric", month: "short" })}` : ""}</Link>,
+      back: <Link to={`/admin/competitions/${cid}`} className="brand">‹ {competition?.name ?? "Compétition"}{day ? ` · ${formatDay(day, { weekday: "short", day: "numeric", month: "short" })}` : ""}</Link>,
       render: (session) => competition ? <PublishButton cid={cid} competition={competition} session={session} initialDay={day} /> : null,
     }} />
   );

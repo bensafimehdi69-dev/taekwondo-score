@@ -1,4 +1,5 @@
 import type { BracketDivision, BracketEntrant } from "../../../src/bracket-builder.ts";
+import { flagOf } from "../../../src/flags.ts";
 import { entrantChange } from "./control.ts";
 
 type QuarterGroup = { quarter?: string; entrants: BracketEntrant[] };
@@ -55,7 +56,7 @@ export function BracketView({ division, original, selected, onSelect, onAdd, onF
                         <button className={`entrant ${e.athleteId === selected ? "is-selected" : ""}`} onClick={() => onSelect(e.athleteId)}>
                           <span className="seed" title={e.seed ? `Tête de série ${e.seed}` : "Non tête de série"}>{e.seed ?? ""}</span>
                           <span className="name">{e.name || <em>Sans nom</em>}</span>
-                          <span className="country">{e.country ?? "—"}</span>
+                          <span className="country">{flagOf(e.country) && <span className="flag" aria-hidden="true">{flagOf(e.country)}</span>}{e.country ?? "—"}</span>
                           <span className="fight" title="Premier combat">{e.path[0] ?? ""}</span>
                           {change && <span className={`tag tag-${change}`}>{change === "added" ? (e.athleteId.startsWith("pdf-") ? "ajouté du PDF" : "ajouté") : "corrigé"}</span>}
                         </button>
