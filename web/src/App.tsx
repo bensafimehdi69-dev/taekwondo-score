@@ -3,6 +3,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { auth, usingEmulators } from "./firebase.ts";
 import { Link, matchPath, usePath } from "./router.tsx";
 import { useSession } from "./session.tsx";
+import { BracketIcon, PersonIcon, PodiumIcon, ShieldIcon } from "./components/Icons.tsx";
 import { AccountPage, LoginPage, PseudoGate } from "./pages/Account.tsx";
 import { CompetitionPage } from "./pages/Competition.tsx";
 import { DivisionPage } from "./pages/Division.tsx";
@@ -72,6 +73,14 @@ export function App() {
         </div>
       )}
       <Suspense fallback={<main className="page"><p className="muted">Chargement du lecteur de PDF…</p></main>}>{content}</Suspense>
+      {/* Barre d'onglets flottante (téléphone) : les mêmes destinations que la navigation du haut. */}
+      <nav className="tabbar" aria-label="Navigation principale">
+        <Link to="/" className={path === "/" || path.startsWith("/competitions") ? "is-active" : ""}><BracketIcon /><span>Compétitions</span></Link>
+        <Link to="/classement" className={path === "/classement" ? "is-active" : ""}><PodiumIcon /><span>Classement</span></Link>
+        {session.isAdmin && <Link to="/admin" className={path.startsWith("/admin") ? "is-active" : ""}><ShieldIcon /><span>Admin</span></Link>}
+        <Link to={session.user ? "/compte" : `/connexion?retour=${encodeURIComponent(path)}`}
+          className={path === "/compte" || path === "/connexion" ? "is-active" : ""}><PersonIcon /><span>{session.user ? "Compte" : "Connexion"}</span></Link>
+      </nav>
     </div>
   );
 }
