@@ -8,6 +8,10 @@ import { auth, usingEmulators } from "../firebase.ts";
 import { errorMessage, formatDay } from "../format.ts";
 import { navigate } from "../router.tsx";
 import { useSession } from "../session.tsx";
+import { BracketIcon } from "../components/Icons.tsx";
+
+/** Icône de l'app (carré arrondi dégradé), en tête des écrans d'accueil du compte. */
+const AppMark = () => <span className="app-mark" aria-hidden="true"><BracketIcon /></span>;
 
 const AUTH_ERRORS: Record<string, string> = {
   "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
@@ -91,13 +95,20 @@ export function LoginPage() {
   }
 
   return (
-    <main className="page narrow">
-      <h1>{mode === "login" ? "Connexion" : "Créer un compte"}</h1>
-      <p className="muted">Un compte est nécessaire pour pronostiquer. Aucun argent en jeu.</p>
+    <main className="page narrow auth-page">
+      <header className="auth-header">
+        <AppMark />
+        <h1>{mode === "login" ? "Connexion" : "Créer un compte"}</h1>
+        <p className="muted">Un compte est nécessaire pour pronostiquer. Aucun argent en jeu.</p>
+      </header>
+      <div className="segmented full" role="tablist" aria-label="Connexion ou création de compte">
+        <button role="tab" aria-selected={mode === "login"} className={mode === "login" ? "is-active" : ""} onClick={() => { setMode("login"); setMessage(null); }}>Connexion</button>
+        <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "is-active" : ""} onClick={() => { setMode("signup"); setMessage(null); }}>Créer un compte</button>
+      </div>
       <DemoAccounts />
       <button className="google" onClick={google}>Continuer avec Google</button>
       <div className="or"><span>ou</span></div>
-      <form className="form" onSubmit={submit}>
+      <form className="form panel" onSubmit={submit}>
         <label>E-mail<input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
         <label>Mot de passe
           <input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={6}
@@ -106,12 +117,7 @@ export function LoginPage() {
         {message && <p className={message.tone === "error" ? "error" : "ok"} role="status">{message.text}</p>}
         <button className="primary" disabled={busy}>{mode === "login" ? "Se connecter" : "Créer mon compte"}</button>
       </form>
-      <div className="form-links">
-        {mode === "login" && <button className="link" onClick={reset}>Mot de passe oublié</button>}
-        <button className="link" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(null); }}>
-          {mode === "login" ? "Pas encore de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
-        </button>
-      </div>
+      {mode === "login" && <div className="form-links"><button className="link" onClick={reset}>Mot de passe oublié ?</button></div>}
     </main>
   );
 }
@@ -155,10 +161,13 @@ function PseudoForm({ initial, onSaved, submitLabel }: { initial: string; onSave
 export function PseudoGate() {
   const { user } = useSession();
   return (
-    <main className="page narrow">
-      <h1>Bienvenue !</h1>
-      <p className="muted">Choisis le pseudo qui apparaîtra dans les classements.</p>
-      <PseudoForm initial={user?.displayName ?? ""} submitLabel="Commencer" />
+    <main className="page narrow auth-page">
+      <header className="auth-header">
+        <AppMark />
+        <h1>Bienvenue !</h1>
+        <p className="muted">Choisis le pseudo qui apparaîtra dans les classements.</p>
+      </header>
+      <div className="panel"><PseudoForm initial={user?.displayName ?? ""} submitLabel="Commencer" /></div>
       <button className="link" onClick={() => signOut(auth)}>Se déconnecter</button>
     </main>
   );
@@ -171,15 +180,23 @@ export function AccountPage() {
   if (!user) return <main className="page"><p className="muted">Chargement…</p></main>;
   return (
     <main className="page narrow">
-      <h1>Mon compte</h1>
-      <dl className="facts">
-        <dt>E-mail</dt><dd>{user.email ?? "—"}</dd>
-        {profile && <><dt>Inscription</dt><dd>{formatDay(profile.createdAt.toISOString().slice(0, 10), { day: "numeric", month: "long", year: "numeric" })}</dd></>}
-        {isAdmin && <><dt>Rôle</dt><dd>Administrateur</dd></>}
-      </dl>
-      {profile && <PseudoForm initial={profile.displayName} submitLabel="Changer de pseudo" onSaved={() => setSaved(true)} />}
-      {saved && <p className="ok" role="status">Pseudo enregistré.</p>}
-      <button onClick={() => signOut(auth).then(() => navigate("/"))}>Se déconnecter</button>
+      <header className="profile-card">
+        <span className="profile-avatar">{(profile?.displayName ?? user.email ?? "?").slice(0, 1).toUpperCase()}</span>
+        <strong className="profile-name">{profile?.displayName ?? "Sans pseudo"}</strong>
+        <span className="muted">{user.email ?? ""}</span>
+      </header>
+      <ul className="info-list">
+        {profile && <li><span>Inscription</span><span className="muted">{formatDay(profile.createdAt.toISOString().slice(0, 10), { day: "numeric", month: "long", year: "numeric" })}</span></li>}
+        <li><span>Rôle</span><span className="muted">{isAdmin ? "Administrateur" : "Joueur"}</span></li>
+      </ul>
+      {profile && (
+        <section className="group">
+          <h2>Pseudo</h2>
+          <div className="panel"><PseudoForm initial={profile.displayName} submitLabel="Changer de pseudo" onSaved={() => setSaved(true)} /></div>
+          {saved && <p className="ok" role="status">Pseudo enregistré.</p>}
+        </section>
+      )}
+      <button className="destructive-row" onClick={() => signOut(auth).then(() => navigate("/"))}>Se déconnecter</button>
     </main>
   );
 }

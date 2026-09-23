@@ -580,3 +580,62 @@ button.danger-solid { background: var(--error); color: #fff; }
 .picks-list .place { text-align: center; }
 .pick-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 420px) { .pick-label { display: none; } .picks-list li { grid-template-columns: 56px 1fr; } }
+
+/* Compétition : lignes avec icône ou pastille d'état */
+.row-with-icon { grid-template-columns: 32px 1fr; align-items: center; column-gap: 12px; }
+.row-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; }
+.row-icon svg { width: 18px; height: 18px; }
+.row-with-status { padding-left: 50px; }
+.row-status {
+  position: absolute; left: 16px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--fill-strong);
+}
+.row-status.is-done { background: var(--ok); color: #fff; box-shadow: none; }
+.row-status.is-todo { box-shadow: inset 0 0 0 2px var(--accent); }
+.row-status.is-todo::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.group > h2 .eyebrow, .admin-day h3 .eyebrow { font-size: 12px; }
+
+/* Classements : podium et liste */
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-items: end; padding: 18px 12px 0; border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.podium-step { display: grid; justify-items: center; gap: 4px; text-align: center; min-width: 0; }
+.podium-avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; font-size: 20px; font-weight: 800; }
+.step-1 .podium-avatar { width: 60px; height: 60px; font-size: 24px; }
+.podium-name { font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-points { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.podium-block { width: 100%; display: grid; place-items: start center; padding-top: 8px; border-radius: 12px 12px 0 0; font-size: 22px; font-weight: 800; opacity: 0.9; }
+.step-1 .podium-block { height: 86px; }
+.step-2 .podium-block { height: 62px; }
+.step-3 .podium-block { height: 46px; }
+.podium-step.is-me .podium-name { color: var(--accent); }
+.ranking-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
+.ranking-list li { position: relative; display: grid; grid-template-columns: 28px 36px 1fr auto; gap: 10px; align-items: center; padding: 10px 16px; }
+.ranking-list li + li::before { content: ""; position: absolute; left: 90px; right: 0; top: 0; border-top: 0.5px solid var(--separator); }
+.ranking-list li.is-me { background: var(--accent-soft); }
+.rank { font-weight: 800; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.rank-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--fill); font-weight: 700; }
+.rank-name { display: grid; min-width: 0; font-weight: 600; }
+.rank-name small { font-weight: 400; font-size: 12px; }
+.rank-points { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+.rank-points small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* Connexion et compte */
+.auth-header { display: grid; justify-items: center; text-align: center; gap: 8px; padding-top: 8px; }
+.auth-header p { margin: 0; }
+.app-mark { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; color: #fff; background: linear-gradient(160deg, #4aa3ff, #0060d0); box-shadow: 0 6px 18px rgb(0 96 208 / 0.3); }
+.app-mark svg { width: 34px; height: 34px; }
+.auth-page .segmented.full { margin: 0; }
+.auth-page .google { background: var(--surface); color: var(--text); box-shadow: var(--shadow), inset 0 0 0 0.5px var(--border); }
+.profile-card { display: grid; justify-items: center; gap: 4px; padding: 22px 16px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow); text-align: center; }
+.profile-avatar { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; font-size: 32px; font-weight: 800; color: #fff; background: linear-gradient(160deg, #4aa3ff, var(--accent)); margin-bottom: 6px; }
+.profile-name { font-size: 22px; letter-spacing: -0.02em; }
+.info-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden; }
+.info-list li { position: relative; display: flex; justify-content: space-between; gap: 12px; padding: 13px 16px; }
+.info-list li + li::before { content: ""; position: absolute; left: 16px; right: 0; top: 0; border-top: 0.5px solid var(--separator); }
+.destructive-row { width: 100%; padding: 13px 16px; border-radius: var(--radius-lg); background: var(--surface); color: var(--error); box-shadow: var(--shadow); }
+
+/* Admin */
+.new-item summary { color: var(--accent); list-style: none; }
+.new-item summary::-webkit-details-marker { display: none; }
+/* Lignes de liste : le contenu se replie au lieu de déborder (pastilles longues sur petit écran). */
+.division-list li, .division-row > * { min-width: 0; }
+.division-badges .chip { white-space: normal; max-width: 100%; }

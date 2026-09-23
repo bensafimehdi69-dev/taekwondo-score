@@ -43,7 +43,10 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
   return (
     <main className="page">
       <p className="crumbs"><Link to="/admin">Administration</Link></p>
-      <h1>{competition.name}</h1>
+      <header className="home-header">
+        <p className="eyebrow">{competition.location} · {competition.published ? "Publiée" : "Non publiée"}</p>
+        <h1>{competition.name}</h1>
+      </header>
       <p className="actions">
         <Link to={`/competitions/${cid}`} className="button">Voir comme un joueur</Link>
         <button onClick={() => act(() => recomputeLeaderboards(cid), "Classements recalculés.")}>Recalculer les classements</button>
@@ -61,7 +64,7 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
         const started = published.some((d) => d.lockAt.getTime() <= now);
         return (
         <section key={day} className="admin-day">
-          <h3>Jour {index + 1} · {formatDay(day)}</h3>
+          <h3><span className="eyebrow">Jour {index + 1}</span><br />{formatDay(day)}</h3>
           <p className="muted small">{ofDay.length === 0 ? "Aucun tirage importé pour cette journée."
             : `${ofDay.length} division(s) · résultats saisis : ${withResult.length}/${published.length}`}</p>
           <p className="actions">
