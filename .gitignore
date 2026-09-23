@@ -2,3 +2,7 @@ node_modules/
 pdf-tests/
 *.pdf
 .env
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*service-account*.json

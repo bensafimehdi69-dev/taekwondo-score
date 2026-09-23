@@ -22,6 +22,15 @@ npm run brackets -- "/chemin/tirage.pdf"   # une ligne par division + anomalies
 
 Tests sur PDF réels : `TKD_PDF_FIXTURES_DIR="/chemin/pdf" TKD_REQUIRE_PDF_FIXTURES=1 npm test`
 
+## Firebase
+
+Projet `taekwondo-score-app` (Firestore eur3, connexion e-mail et Google). Détails dans `CLAUDE.md`.
+
+```sh
+npm run admin -- utilisateur@exemple.com   # rôle admin (FIREBASE_SERVICE_ACCOUNT : chemin ou JSON de la clé)
+firebase deploy --only firestore           # publie firestore.rules et firestore.indexes.json
+```
+
 ## Limite connue
 
 Grand Prix de Rome 2026 (livret de résultats) : 0 division sur 7 sans revue. Côté droit mal décodé et
