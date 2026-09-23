@@ -131,6 +131,8 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .alert-error { background: var(--error-bg); color: var(--error); }
 .alert-warn { background: var(--warn-bg); color: var(--warn); }
 .alert-ok { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+.audit-line { margin: 0; padding: 6px 12px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+.audit-line.is-clean { background: var(--ok-bg); color: var(--ok); }
 .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; }
 .check input { width: auto; margin-top: 2px; }
 
@@ -377,7 +379,11 @@ table.points-table, table.ranking { width: 100%; border-collapse: collapse; back
   .head-actions button { flex: 1; }
   .division-panel.is-editing .head-actions { display: none; }
 
-  .segmented.pane-tabs { display: flex; margin: 0; }
+  .division-panel { position: relative; }
+  .segmented.pane-tabs {
+    display: flex; margin: 0; position: sticky; top: -10px; z-index: 6;
+    box-shadow: 0 0 0 10px var(--bg), 0 10px 12px -8px rgb(0 0 0 / 0.25);
+  }
   .split { grid-template-columns: 1fr; flex: none; }
   .split.show-pdf .bracket-pane, .split.show-bracket .pdf-pane { display: none; }
   .pdf-pane { height: 72dvh; }

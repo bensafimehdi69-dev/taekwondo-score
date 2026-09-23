@@ -415,6 +415,14 @@ function pathForAthlete(page: ParsedPage, anchor: VisualTextItem, markers: Fight
   return selected.map((marker) => marker.code);
 }
 
+/**
+ * Parcours d'un texte quelconque de la page (ex. un nom retrouvé par la vérification du PDF),
+ * calculé exactement comme pour un athlète lu par le moteur. `roster` : les noms de la page, pour le premier combat.
+ */
+export function pathForSourceItem(page: ParsedPage, item: VisualTextItem, roster: VisualTextItem[]): string[] {
+  return pathForAthlete(page, item, extractMarkers(page), roster);
+}
+
 function anchorsForTeam(page: ParsedPage, team: string): Array<{ anchor: VisualTextItem; name: string; sourceText: string }> {
   const teamKey = normalized(team);
   const results: Array<{ anchor: VisualTextItem; name: string; sourceText: string }> = [];
@@ -452,7 +460,7 @@ const ABBREVIATED_WINNER_COUNTRY = /\([A-Z]{3}\)\s*$/;
  * La page place-t-elle le pays avant le nom ? On ne compte que les lignes sans ambiguïté
  * (« (1) LIU You-yun TPE » se lit dans les deux sens) : le format doit dominer, sur 3 lignes au moins.
  */
-function countryFirstPage(items: VisualTextItem[]): boolean {
+export function countryFirstPage(items: VisualTextItem[]): boolean {
   let first = 0;
   let last = 0;
   for (const item of items) {

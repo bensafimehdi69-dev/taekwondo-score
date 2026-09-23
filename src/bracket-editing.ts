@@ -23,6 +23,11 @@ function withEntrants(division: BracketDivision, entrants: BracketEntrant[], fin
     issues, status: issues.length ? "review" : "ok" };
 }
 
+/** Remplace la liste des athlètes (ex. ajouts de la vérification du PDF) en rejouant les contrôles de structure. */
+export function replaceEntrants(division: BracketDivision, entrants: BracketEntrant[]): BracketDivision {
+  return withEntrants(division, entrants);
+}
+
 const clean = (value: string | undefined) => value?.trim() || undefined;
 
 /** Recale le parcours (quart, demi, finale) et le côté de la feuille après un changement de place. */

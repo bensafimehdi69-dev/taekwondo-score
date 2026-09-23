@@ -1,6 +1,7 @@
 // État d'une séance de contrôle : divisions lues, corrections, validations, bilan de la phase 0.
 import { checkBracket, type BracketDivision, type BracketEntrant } from "../../../src/bracket-builder.ts";
 import { countCorrections, readingIssues } from "../../../src/bracket-editing.ts";
+import type { DivisionAudit } from "../../../src/source-audit.ts";
 
 export type Entry = {
   original: BracketDivision;
@@ -8,6 +9,8 @@ export type Entry = {
   validated: boolean;
   /** L'admin a comparé chaque athlète au PDF : exigé tant qu'une alerte de lecture reste affichée. */
   checked: boolean;
+  /** Vérification automatique de l'arbre contre les noms imprimés sur la feuille (src/source-audit.ts). */
+  audit?: DivisionAudit;
 };
 
 export type Session = { fileName: string; sha256: string; pageCount: number; ocrPages: number; entries: Entry[] };

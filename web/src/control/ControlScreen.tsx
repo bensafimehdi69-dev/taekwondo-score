@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BracketDivision } from "../../../src/bracket-builder.ts";
 import { addEntrant, moveEntrant, removeEntrant, setFinalFight, updateEntrant } from "../../../src/bracket-editing.ts";
 import { readDraw } from "../../../src/read-draw.ts";
+import { withSourceAthletes } from "../../../src/source-audit.ts";
 import type { ReactNode } from "react";
 import { BracketView } from "./BracketView.tsx";
 import { entryState, exportControl, sha256, summarize, type Entry, type Session } from "./control.ts";
@@ -53,10 +54,14 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
         readDraw(next, "", "all", (page, total) => setProgress({ page, total })),
         sha256(next),
       ]);
-      const entries = draw.brackets.map((d): Entry => ({ original: d, current: d, validated: false, checked: false }));
+      // Vérification contre la feuille : les athlètes imprimés mais sautés par la lecture sont ajoutés à leur place et signalés.
+      const entries = draw.brackets.map((d): Entry => {
+        const { division, audit } = withSourceAthletes(d, draw.pages, { siblings: draw.brackets });
+        return { original: d, current: division, audit, validated: false, checked: false };
+      });
       setSession({ fileName: next.name, sha256: hash, pageCount: draw.pages.length,
         ocrPages: draw.pages.filter((p) => p.extractionMethod === "ocr").length, entries });
-      setSelectedKey((entries.find((e) => e.original.status === "review") ?? entries[0])?.original.key ?? null);
+      setSelectedKey((entries.find((e) => e.current.status === "review") ?? entries[0])?.original.key ?? null);
       setSelectedAthlete(null);
       setMobileView("list");
     } catch (cause) {
@@ -205,10 +210,27 @@ type PanelProps = {
 function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, onCheck, onValidate, onUnvalidate, onReset, onBack }: PanelProps) {
   const { current, original } = entry;
   const { structural, reading, corrections, canValidate } = entryState(entry);
-  // Sur petit écran, l'arbre et le PDF s'affichent l'un après l'autre, par onglets.
+  // Sur petit écran, l'arbre et le PDF s'affichent l'un après l'autre, par onglets fixés en haut ;
+  // chaque onglet retrouve sa position de défilement.
   const [pane, setPane] = useState<"bracket" | "pdf">("bracket");
+  const panel = useRef<HTMLElement>(null);
+  const tabsAnchor = useRef<HTMLDivElement>(null);
+  const scrolls = useRef({ bracket: 0, pdf: 0 });
+  function switchPane(next: "bracket" | "pdf") {
+    const element = panel.current;
+    if (next === pane || !element) { setPane(next); return; }
+    const tabsTop = tabsAnchor.current?.offsetTop ?? 0;
+    const pastTabs = element.scrollTop > tabsTop;
+    scrolls.current[pane] = element.scrollTop;
+    setPane(next);
+    requestAnimationFrame(() => { if (pastTabs) element.scrollTop = Math.max(scrolls.current[next], tabsTop); });
+  }
+  const audit = entry.audit;
+  const added = current.entrants.filter((e) => e.athleteId.startsWith("pdf-")).length;
+  const auditClean = !!audit && audit.matchedRatio >= 0.8 && !audit.uncertain.length && !audit.notInSource.length
+    && audit.sourceCount === current.size && (audit.declared === undefined || audit.declared === current.size);
   return (
-    <main className={`division-panel ${selectedAthlete ? "is-editing" : ""}`}>
+    <main ref={panel} className={`division-panel ${selectedAthlete ? "is-editing" : ""}`}>
       <header className="division-head">
         <button className="link back" onClick={onBack}>← Divisions</button>
         <div>
@@ -246,11 +268,18 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
           )}
         </div>
       )}
+      {audit && audit.matchedRatio >= 0.8 && (
+        <p className={`audit-line ${auditClean ? "is-clean" : ""}`}>
+          Vérification du PDF : {audit.sourceCount} nom(s) relu(s) sur la feuille{audit.declared !== undefined && `, ${audit.declared} annoncé(s)`}
+          {" "}· {current.size} dans l'arbre{added > 0 && `, dont ${added} ajouté(s) du PDF`}.{auditClean && " Tout correspond."}
+        </p>
+      )}
       {entry.validated && <div className="alert alert-ok">Division validée{corrections ? ` après ${corrections} correction(s)` : " telle que lue"}.</div>}
 
+      <div ref={tabsAnchor} aria-hidden="true" />
       <div className="segmented full pane-tabs" role="tablist" aria-label="Affichage">
-        <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => setPane("bracket")}>Arbre reconstruit</button>
-        <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => setPane("pdf")}>PDF source</button>
+        <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => switchPane("bracket")}>Arbre reconstruit</button>
+        <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => switchPane("pdf")}>PDF source</button>
       </div>
       <div className={`split show-${pane}`}>
         <PdfPreview file={file} pages={current.pages} />
