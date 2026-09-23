@@ -23,6 +23,8 @@ export function App() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  // Sur petit écran, la liste des divisions et la division ouverte sont deux écrans distincts.
+  const [mobileView, setMobileView] = useState<"list" | "division">("list");
   const input = useRef<HTMLInputElement>(null);
 
   const dirty = !!session?.entries.some((e) => e.validated || e.current !== e.original);
@@ -49,6 +51,7 @@ export function App() {
         ocrPages: draw.pages.filter((p) => p.extractionMethod === "ocr").length, entries });
       setSelectedKey((entries.find((e) => e.original.status === "review") ?? entries[0])?.original.key ?? null);
       setSelectedAthlete(null);
+      setMobileView("list");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -78,6 +81,7 @@ export function App() {
   function select(key: string) {
     setSelectedKey(key);
     setSelectedAthlete(null);
+    setMobileView("division");
   }
   function validate(current: Entry) {
     updateEntry(current.original.key, (e) => ({ ...e, validated: true }));
@@ -91,14 +95,14 @@ export function App() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void importPdf(f); }}>
       <header className="topbar">
-        <div className="brand">Taekwondo Score <span className="muted">· Contrôle des tirages</span></div>
+        <div className="brand">Taekwondo Score <span className="muted hide-narrow">· Contrôle des tirages</span></div>
         {session && <span className="file" title={session.sha256}>{session.fileName}</span>}
         <div className="spacer" />
         <input ref={input} type="file" accept="application/pdf" hidden
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importPdf(f); }} />
-        {session && <button onClick={download}>Exporter le contrôle</button>}
+        {session && <button onClick={download}>Exporter<span className="hide-narrow"> le contrôle</span></button>}
         <button className="primary" onClick={() => input.current?.click()} disabled={!!progress}>
-          {session ? "Importer un autre PDF" : "Importer un PDF"}
+          {session ? <>Importer<span className="hide-narrow"> un autre PDF</span></> : "Importer un PDF"}
         </button>
       </header>
 
@@ -131,7 +135,7 @@ export function App() {
       )}
 
       {session && entries.length > 0 && (
-        <div className="workspace">
+        <div className="workspace" data-view={mobileView}>
           <nav className="sidebar" aria-label="Divisions">
             <div className="summary">
               <div><strong>{summary.validated}</strong>/{summary.total} validées</div>
@@ -164,7 +168,7 @@ export function App() {
           </nav>
 
           {entry && file ? <DivisionPanel key={entry.original.key} entry={entry} file={file}
-            selectedAthlete={selectedAthlete} onSelectAthlete={setSelectedAthlete}
+            selectedAthlete={selectedAthlete} onSelectAthlete={setSelectedAthlete} onBack={() => setMobileView("list")}
             onEdit={(change) => edit(entry.original.key, change)}
             onCheck={(checked) => updateEntry(entry.original.key, (e) => ({ ...e, checked }))}
             onValidate={() => validate(entry)}
@@ -187,14 +191,18 @@ type PanelProps = {
   onValidate: () => void;
   onUnvalidate: () => void;
   onReset: () => void;
+  onBack: () => void;
 };
 
-function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, onCheck, onValidate, onUnvalidate, onReset }: PanelProps) {
+function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, onCheck, onValidate, onUnvalidate, onReset, onBack }: PanelProps) {
   const { current, original } = entry;
   const { structural, reading, corrections, canValidate } = entryState(entry);
+  // Sur petit écran, l'arbre et le PDF s'affichent l'un après l'autre, par onglets.
+  const [pane, setPane] = useState<"bracket" | "pdf">("bracket");
   return (
-    <main className="division-panel">
+    <main className={`division-panel ${selectedAthlete ? "is-editing" : ""}`}>
       <header className="division-head">
+        <button className="link back" onClick={onBack}>← Divisions</button>
         <div>
           <h1>{current.category}</h1>
           <p className="muted">{current.size} athlètes · {current.semiFights.length} demi-finales · {current.quarterFights.length} quarts · page {current.pages.join("-")}</p>
@@ -232,7 +240,11 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
       )}
       {entry.validated && <div className="alert alert-ok">Division validée{corrections ? ` après ${corrections} correction(s)` : " telle que lue"}.</div>}
 
-      <div className="split">
+      <div className="segmented full pane-tabs" role="tablist" aria-label="Affichage">
+        <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => setPane("bracket")}>Arbre reconstruit</button>
+        <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => setPane("pdf")}>PDF source</button>
+      </div>
+      <div className={`split show-${pane}`}>
         <PdfPreview file={file} pages={current.pages} />
         <section className="bracket-pane" aria-label="Arbre reconstruit">
           <BracketView division={current} original={original} selected={selectedAthlete ?? undefined}
