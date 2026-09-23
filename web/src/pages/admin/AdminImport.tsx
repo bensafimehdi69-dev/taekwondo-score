@@ -3,12 +3,7 @@ import { divisionDoc, zonedTimeToUtc, type DivisionStatus } from "../../../../sr
 import { ControlScreen } from "../../control/ControlScreen.tsx";
 import type { Session } from "../../control/control.ts";
 import { getCompetition, publishDivisions, type WithId } from "../../data.ts";
-import { errorMessage, formatDay } from "../../format.ts";
-
-/** Un refus du serveur à la publication vient des droits : le rôle admin n'est pas (ou plus) dans la session. */
-const publishError = (cause: unknown) => (cause as { code?: string })?.code === "permission-denied"
-  ? "Publication refusée par le serveur : ta session d'administrateur n'est pas reconnue. Déconnecte-toi, reconnecte-toi, puis réessaie."
-  : errorMessage(cause);
+import { adminError, formatDay } from "../../format.ts";
 import { Link } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
 import type { CompetitionDoc } from "../../../../src/model.ts";
@@ -56,7 +51,7 @@ function PublishButton({ cid, competition, session }: { cid: string; competition
       setMessage({ tone: "ok", text: `Publication réussie. ${parts.join(" ; ")}.` });
       setDone(true);
     } catch (cause) {
-      setMessage({ tone: "error", text: publishError(cause) });
+      setMessage({ tone: "error", text: adminError(cause) });
     } finally {
       setBusy(false);
     }

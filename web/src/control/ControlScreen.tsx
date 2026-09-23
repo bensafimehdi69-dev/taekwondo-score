@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { BracketDivision } from "../../../src/bracket-builder.ts";
-import { addEntrant, moveEntrant, removeEntrant, setFinalFight, updateEntrant } from "../../../src/bracket-editing.ts";
+import { addEntrant, moveEntrant, removeEntrant, setCategory, setFinalFight, updateEntrant } from "../../../src/bracket-editing.ts";
 import { readDraw } from "../../../src/read-draw.ts";
 import { withSourceAthletes } from "../../../src/source-audit.ts";
 import type { ReactNode } from "react";
 import { BracketView } from "./BracketView.tsx";
+import { CategoryEditor } from "./CategoryEditor.tsx";
 import { entryState, exportControl, sha256, summarize, type Entry, type Session } from "./control.ts";
 import { EntrantEditor } from "./EntrantEditor.tsx";
 import { PdfPreview } from "./PdfPreview.tsx";
@@ -236,6 +237,7 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
         <div>
           <h1>{current.category}</h1>
           <p className="muted">{current.size} athlètes · {current.semiFights.length} demi-finales · {current.quarterFights.length} quarts · page {current.pages.join("-")}</p>
+          <CategoryEditor division={current} onChange={(patch) => onEdit((d) => setCategory(d, patch))} />
         </div>
         <div className="head-actions">
           {corrections > 0 && <button onClick={onReset}>Revenir à la lecture ({corrections} corr.)</button>}

@@ -111,6 +111,16 @@ test("points : l'admin écrit le score, et seulement le score", async () => {
   await assertFails(updateDoc(doc(user("alice"), `${LOCKED}/predictions/alice`), { score: { total: 999, exactGolds: 8 } }));
 });
 
+test("suppression : l'admin efface pronostics, divisions, classement et compétition ; personne d'autre", async () => {
+  await assertFails(deleteDoc(doc(user("bob"), `${LOCKED}/predictions/alice`)));
+  await assertFails(deleteDoc(doc(user("alice"), "competitions/gp")));
+  await assertFails(deleteDoc(doc(user("alice"), OPEN)));
+  await assertSucceeds(deleteDoc(doc(admin(), `${LOCKED}/predictions/alice`)));
+  await assertSucceeds(deleteDoc(doc(admin(), LOCKED)));
+  await assertSucceeds(deleteDoc(doc(admin(), "competitions/gp/leaderboard/alice")));
+  await assertSucceeds(deleteDoc(doc(admin(), "competitions/gp")));
+});
+
 test("classements : lus par tous, écrits par l'admin", async () => {
   await assertSucceeds(getDoc(doc(visitor(), "leaderboard/alice")));
   await assertSucceeds(getDoc(doc(visitor(), "competitions/gp/leaderboard/alice")));

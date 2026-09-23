@@ -112,8 +112,38 @@ export async function setDivisionLock(cid: string, did: string, lockAt: Date) {
   await updateDoc(doc(db, "competitions", cid, "divisions", did), { lockAt });
 }
 
+/** Supprime une division et ses pronostics (Firestore ne supprime pas les sous-collections), puis recalcule les classements si elle avait compté. */
 export async function deleteDivision(cid: string, did: string) {
-  await deleteDoc(doc(db, "competitions", cid, "divisions", did));
+  const ref = doc(db, "competitions", cid, "divisions", did);
+  const division = await getDivision(cid, did);
+  const predictions = await getDocs(collection(ref, "predictions"));
+  await inBatches(predictions.docs, (batch, d) => batch.delete(d.ref));
+  await deleteDoc(ref);
+  if (division && SCORED_STATUSES.includes(division.status)) await recomputeLeaderboards(cid);
+}
+
+/** Ce qu'une suppression de compétition effacerait : affiché avant de confirmer. */
+export async function competitionFootprint(cid: string): Promise<{ divisions: number; predictions: number }> {
+  const divisions = await getDocs(collection(db, "competitions", cid, "divisions"));
+  const counts = await Promise.all(divisions.docs.map(async (d) => (await getDocs(collection(d.ref, "predictions"))).size));
+  return { divisions: divisions.size, predictions: counts.reduce((a, b) => a + b, 0) };
+}
+
+/**
+ * Supprime une compétition et tout ce qu'elle contient : pronostics, divisions, classement de la compétition.
+ * Le classement général est ensuite recalculé sans elle. Irréversible.
+ */
+export async function deleteCompetition(cid: string) {
+  const divisions = await getDocs(collection(db, "competitions", cid, "divisions"));
+  for (const division of divisions.docs) {
+    const predictions = await getDocs(collection(division.ref, "predictions"));
+    await inBatches(predictions.docs, (batch, d) => batch.delete(d.ref));
+  }
+  await inBatches(divisions.docs, (batch, d) => batch.delete(d.ref));
+  const board = await getDocs(collection(db, "competitions", cid, "leaderboard"));
+  await inBatches(board.docs, (batch, d) => batch.delete(d.ref));
+  await deleteDoc(doc(db, "competitions", cid));
+  await recomputeGeneralLeaderboard();
 }
 
 // --- Pronostics -------------------------------------------------------------------------------------------
@@ -192,7 +222,11 @@ export async function recomputeLeaderboards(cid: string) {
     }
   }
   await writeLeaderboard(["competitions", cid, "leaderboard"], sumScores(scores));
+  await recomputeGeneralLeaderboard();
+}
 
+/** Classement général : somme des classements de toutes les compétitions. */
+export async function recomputeGeneralLeaderboard() {
   const general: Array<{ uid: string; total: number; exactGolds: number }> = [];
   for (const competition of await listCompetitions(true)) {
     const board = await getDocs(collection(db, "competitions", competition.id, "leaderboard"));

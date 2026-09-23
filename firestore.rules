@@ -121,7 +121,8 @@ service cloud.firestore {
           allow create, update: if isUser(uid)
             && canPredict(divisionOf(cid, did))
             && validPrediction(request.resource.data, divisionOf(cid, did));
-          allow delete: if isUser(uid) && canPredict(divisionOf(cid, did));
+          // L'auteur retire son pronostic avant le verrouillage ; l'admin supprime ceux d'une division ou d'une compétition supprimée.
+          allow delete: if isAdmin() || (isUser(uid) && canPredict(divisionOf(cid, did)));
           // Calcul des points : l'admin n'écrit que le score.
           allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score']);
         }
