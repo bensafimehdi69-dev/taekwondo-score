@@ -1,5 +1,5 @@
-import type { BracketDivision } from "../../src/bracket-builder.ts";
-import type { EntrantPatch } from "../../src/bracket-editing.ts";
+import type { BracketDivision } from "../../../src/bracket-builder.ts";
+import type { EntrantPatch } from "../../../src/bracket-editing.ts";
 
 type Props = {
   division: BracketDivision;

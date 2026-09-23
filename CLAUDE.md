@@ -43,9 +43,17 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - `npm run admin -- utilisateur@exemple.com [--retirer]` : accorde ou retire le rôle admin (le compte doit exister).
 - `npm run test:rules` : règles Firestore testées dans l'émulateur (projet `demo-taekwondo-score`, jamais le vrai ; Java 21 et CLI `firebase` requis).
 - `firebase deploy --only firestore` : publie `firestore.rules` et `firestore.indexes.json` (après `npm run test:rules`).
-- `npm run dev` : écran de contrôle des tirages sur http://localhost:5173 (app `web/`, moteur importé depuis `src/`) ; `npm run build` : version compilée dans `dist/`.
+- `npm run dev:demo` : app complète sur les émulateurs (auth + Firestore, projet `demo-taekwondo-score`), données fictives de `scripts/seed-demo.mjs`, boutons « Joueur démo » / « Admin démo » sur la page Connexion. À utiliser pour tout test : jamais de données réelles.
+- `npm run dev:demo` et `npm run test:rules` utilisent les mêmes ports d'émulateur (8080, 9099) : arrêter l'un avant de lancer l'autre.
+- `npm run dev` : app contre le vrai projet (`localhost` n'est pas un domaine autorisé pour la connexion Google) ; `npm run build` : version compilée dans `dist/` (sans le code du mode démo).
 
-## Écran de contrôle (`web/`)
+## App web (`web/`, phase 1)
+- Structure : `src/App.tsx` (routes), `router.tsx` (navigation par l'URL), `session.tsx` (utilisateur, pseudo, rôle admin), `data.ts` (toutes les lectures et écritures Firestore), `pages/` (joueur), `pages/admin/`, `components/BracketPicker.tsx` (arbre à toucher, pronostic et résultats), `control/` (écran de contrôle).
+- Joueur : accueil, compétition (divisions par jour, fait / à faire, compte à rebours), division (pronostic au toucher, cohérence imposée, enregistrement jusqu'au verrouillage, points détaillés après résultats), classements, compte (pseudo).
+- Admin : compétitions (création, publication), divisions (statut, heure de verrouillage locale, suppression), import d'un PDF → écran de contrôle → « Publier » (jour, heure de verrouillage, statut ; republier = nouvelle version), résultats saisis dans l'arbre → points de chaque pronostic → classements de la compétition et général (`src/scoring.ts`).
+- Le moteur PDF n'est chargé que sur la page d'import (le bundle des joueurs ne le contient pas).
+
+## Écran de contrôle (`web/src/control/`, route `/admin/competitions/:cid/import`)
 - Import d'un PDF dans le navigateur (OCR compris), PDF source et arbre reconstruit côte à côte, correction de chaque athlète et du combat de finale (`src/bracket-editing.ts`), validation explicite par division.
 - Une anomalie de structure bloque la validation ; une alerte de lecture exige la case « comparé au PDF ». Rien n'est enregistré en ligne : export JSON local (`taekwondo-score/controle@1`).
 - Bilan affiché : divisions validées « justes sans correction », mesure du critère de la phase 0.
@@ -59,7 +67,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Règles du 23/09/2026 dans `team-path-parser.ts` : tête de série TaekoPlan lue sur la ligne du dossard (« B/1353 (1) NOM ») ; livrets européens avec le pays avant le nom (« (1) EGY NOM Prénom », « BIH Nom, Prénom »), appliqué seulement si ce format domine la page (3 lignes non ambiguës au moins).
 - Limites restantes : format UPTKD (Spanish Open 2026, colonnes « Rnd 1 / Q-Final ») non reconnu ; liaisons de combats contradictoires sur certaines pages européennes ; numéros de combat à décimale (« 928.1 ») non lus ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
 - Modèle Firestore et règles faits et testés (23/09/2026).
-- Prochaine étape : phase 1 (MVP web) — connexion et pseudo, publication d'une division contrôlée par l'admin, pronostic par clic dans l'arbre, saisie des résultats et calcul des points, classements.
+- Phase 1 (MVP web) faite le 23/09/2026 et testée de bout en bout en mode démo, sur mobile (375 px) et ordinateur : connexion, pseudo, publication d'un vrai tirage, pronostic, résultats, points, classements.
+- Prochaine étape : mise en ligne sur Firebase Hosting (`taekwondo-score-app.web.app`, avec l'accord de Mehdi), premier admin (`npm run admin`), puis compétition réelle avec un groupe test.
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.

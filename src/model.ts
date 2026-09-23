@@ -14,6 +14,9 @@
 import type { BracketDivision, BracketEntrant } from "./bracket-builder.ts";
 import { expectedPicks, type DivisionResult, type Pick, type Place } from "./prediction.ts";
 
+// `Pick` désigne ici un choix de pronostic : sous-ensemble de champs, sans masquer ce nom.
+type Fields<T, K extends keyof T> = { [P in K]: T[P] };
+
 export const PLACES: readonly Place[] = ["gold", "silver", "bronze", "quarter"];
 
 /** Places pronostiquées (ou résultat réel) : une liste d'athlètes par place, forme vérifiable par les règles. */
@@ -86,12 +89,57 @@ export function picksFromPlaces(places: Places): Pick[] {
   return PLACES.flatMap((place) => places[place].map((athleteId): Pick => ({ athleteId, place })));
 }
 
+export const PLACE_LABELS: Record<Place, string> = { gold: "Vainqueur", silver: "Finaliste", bronze: "Bronze", quarter: "Battu en quart" };
+
+/**
+ * Attribue une place à un athlète (null = retirer). Un athlète n'occupe qu'une place.
+ * Vainqueur et finaliste remplacent l'athlète déjà choisi ; bronze et quart refusent d'aller au-delà de la limite.
+ */
+export function assignPlace(places: Places, athleteId: string, place: Place | null, limits: Record<Place, number>): { places: Places; error?: string } {
+  const next = Object.fromEntries(PLACES.map((p) => [p, places[p].filter((id) => id !== athleteId)])) as Places;
+  if (!place) return { places: next };
+  if (limits[place] === 0) return { places, error: `Pas de place « ${PLACE_LABELS[place]} » dans cette division.` };
+  if (limits[place] === 1) return { places: { ...next, [place]: [athleteId] } };
+  if (next[place].length >= limits[place]) {
+    return { places, error: `Déjà ${limits[place]} athlètes pour « ${PLACE_LABELS[place]} » : retires-en un d'abord.` };
+  }
+  return { places: { ...next, [place]: [...next[place], athleteId] } };
+}
+
+export const emptyPlaces = (): Places => ({ gold: [], silver: [], bronze: [], quarter: [] });
+
 /** Résultat saisi par l'admin, au format de prediction.ts ; absent tant que vainqueur et finaliste ne sont pas connus. */
 export function resultFromPlaces(places: Places): DivisionResult | undefined {
   const [gold] = places.gold;
   const [silver] = places.silver;
   if (!gold || !silver) return undefined;
   return { gold, silver, bronze: [...places.bronze], quarter: [...places.quarter] };
+}
+
+/** Arbre d'un document de division, au format des règles de pronostic (prediction.ts). */
+export function bracketOf(id: string, doc: DivisionDoc<unknown>): BracketDivision {
+  return {
+    key: id,
+    category: doc.category,
+    ageCategory: doc.ageCategory,
+    genderCategory: doc.genderCategory,
+    weightCategory: doc.weightCategory,
+    pages: doc.source.pages,
+    finalFight: doc.bracket.finalFight,
+    size: doc.bracket.entrants.length,
+    entrants: doc.bracket.entrants,
+    semiFights: doc.bracket.semiFights,
+    quarterFights: doc.bracket.quarterFights,
+    status: "ok",
+    issues: [],
+  };
+}
+
+/** Identifiant stable d'une division dans sa compétition : republier le même tirage met à jour le même document. */
+export function divisionId(doc: Fields<DivisionDoc<unknown>, "day" | "category" | "bracket">): string {
+  const slug = doc.category.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/\+/g, "plus").replace(/-(?=\d)/g, "moins").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return [doc.day, slug, doc.bracket.finalFight ?? "sans-finale"].join("_");
 }
 
 /** Firestore refuse `undefined` : les champs optionnels absents sont retirés, pas écrits vides. */

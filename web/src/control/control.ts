@@ -1,6 +1,6 @@
 // État d'une séance de contrôle : divisions lues, corrections, validations, bilan de la phase 0.
-import { checkBracket, type BracketDivision, type BracketEntrant } from "../../src/bracket-builder.ts";
-import { countCorrections, readingIssues } from "../../src/bracket-editing.ts";
+import { checkBracket, type BracketDivision, type BracketEntrant } from "../../../src/bracket-builder.ts";
+import { countCorrections, readingIssues } from "../../../src/bracket-editing.ts";
 
 export type Entry = {
   original: BracketDivision;

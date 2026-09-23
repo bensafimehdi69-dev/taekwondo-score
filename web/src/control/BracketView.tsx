@@ -1,4 +1,4 @@
-import type { BracketDivision, BracketEntrant } from "../../src/bracket-builder.ts";
+import type { BracketDivision, BracketEntrant } from "../../../src/bracket-builder.ts";
 import { entrantChange } from "./control.ts";
 
 type QuarterGroup = { quarter?: string; entrants: BracketEntrant[] };
