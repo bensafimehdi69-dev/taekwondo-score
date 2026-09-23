@@ -70,7 +70,7 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
       <BracketSheet tree={tree} places={places} onChange={(next) => { setDraft(next); setMessage(null); }} />
       <section>
         <h2>Classement saisi</h2>
-        <PicksSummary bracket={bracket} places={places} limits={division.expected} />
+        <PicksSummary bracket={bracket} places={places} limits={division.expected} emptyLabel="À saisir" />
         {!coherent.valid && <ul className="issues">{coherent.issues.map((i) => <li key={i}>{i}</li>)}</ul>}
         {coherent.valid && !complete.valid && <p className="muted small">{missing} place(s) encore vide(s).</p>}
       </section>
