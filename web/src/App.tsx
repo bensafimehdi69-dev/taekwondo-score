@@ -24,11 +24,12 @@ const routes: Route[] = [
   { pattern: "/classement", render: () => <LeaderboardPage /> },
   { pattern: "/competitions/:cid", render: (p) => <CompetitionPage cid={p.cid} /> },
   { pattern: "/competitions/:cid/classement", render: (p) => <LeaderboardPage cid={p.cid} /> },
-  { pattern: "/competitions/:cid/divisions/:did", render: (p) => <DivisionPage cid={p.cid} did={p.did} /> },
+  { pattern: "/competitions/:cid/divisions/:did", render: (p) => <DivisionPage key={p.did} cid={p.cid} did={p.did} /> },
   { pattern: "/admin", admin: true, render: () => <AdminHomePage /> },
   { pattern: "/admin/competitions/:cid", admin: true, render: (p) => <AdminCompetitionPage cid={p.cid} /> },
   { pattern: "/admin/competitions/:cid/import", admin: true, bare: true, render: (p) => <AdminImportPage cid={p.cid} /> },
-  { pattern: "/admin/competitions/:cid/divisions/:did/resultats", admin: true, render: (p) => <AdminResultsPage cid={p.cid} did={p.did} /> },
+  { pattern: "/admin/competitions/:cid/jours/:day/import", admin: true, bare: true, render: (p) => <AdminImportPage key={p.day} cid={p.cid} day={p.day} /> },
+  { pattern: "/admin/competitions/:cid/divisions/:did/resultats", admin: true, render: (p) => <AdminResultsPage key={p.did} cid={p.cid} did={p.did} /> },
 ];
 
 export function App() {

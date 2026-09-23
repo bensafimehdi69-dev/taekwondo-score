@@ -4,7 +4,7 @@ import { bracketOf, emptyPlaces, PLACES, picksFromPlaces, type Places } from "..
 import { validatePrediction } from "../../../../src/prediction.ts";
 import { BracketSheet } from "../../components/BracketSheet.tsx";
 import { PicksSummary } from "../../components/PicksSummary.tsx";
-import { getCompetition, getDivision, saveResultAndScore } from "../../data.ts";
+import { getCompetition, getDivision, listDivisions, saveResultAndScore } from "../../data.ts";
 import { errorMessage } from "../../format.ts";
 import { Link } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
@@ -12,7 +12,7 @@ import { useAsync } from "../../useAsync.ts";
 /** Saisie du classement réel en cliquant dans l'arbre, puis calcul des points et des classements. */
 export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
   const { data, error, loading, reload } = useAsync(async () => ({
-    competition: await getCompetition(cid), division: await getDivision(cid, did),
+    competition: await getCompetition(cid), division: await getDivision(cid, did), divisions: await listDivisions(cid, true),
   }), [cid, did]);
   const loaded = data?.division;
   const bracket = useMemo(() => (loaded ? bracketOf(did, loaded) : null), [loaded, did]);
@@ -29,6 +29,9 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
   const coherent = validatePrediction(bracket, picksFromPlaces(places), { requireComplete: false });
   const missing = PLACES.reduce((n, p) => n + division.expected[p] - places[p].length, 0);
   const ready = coherent.valid && places.gold.length === 1 && places.silver.length === 1;
+  // Suivante à saisir : une division publiée sans résultat, du même jour d'abord.
+  const pending = data.divisions.filter((d) => d.id !== did && !d.result && d.status !== "draft" && d.status !== "review");
+  const nextPending = pending.find((d) => d.day === division.day) ?? pending[0];
 
   async function save() {
     if (!ready) return;
@@ -61,6 +64,12 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
         {coherent.valid && !complete.valid && <p className="muted small">{missing} place(s) encore vide(s).</p>}
       </section>
       {message && <p className={message.tone} role="status">{message.text}</p>}
+      <nav className="division-nav">
+        <Link to={`/admin/competitions/${cid}`} className="button">← Journées de la compétition</Link>
+        {nextPending && <Link to={`/admin/competitions/${cid}/divisions/${nextPending.id}/resultats`} className={`button ${message?.tone === "ok" ? "primary" : ""}`}>
+          Résultats suivants : {nextPending.category} →</Link>}
+        {!nextPending && message?.tone === "ok" && <span className="ok small">Tous les résultats sont saisis.</span>}
+      </nav>
       <div className="savebar">
         <span className="muted small">{ready ? "Prêt à enregistrer." : "Vainqueur et finaliste obligatoires, arbre cohérent."}</span>
         <button className="primary" disabled={busy || !ready} onClick={save}>{busy ? "Calcul…" : "Enregistrer et calculer les points"}</button>
