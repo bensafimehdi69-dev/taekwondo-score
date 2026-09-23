@@ -71,10 +71,7 @@ export type PredictionDoc<Time = Date> = {
   picks: Places;
   bracketVersion: number;
   updatedAt: Time;
-  /**
-   * Arbre tel que le joueur l'a rempli (case → athlète, src/bracket-tree.ts) : garde aussi les choix encore sans place
-   * (un demi-finaliste dont la finale n'est pas décidée). Les points ne se calculent que sur `picks`.
-   */
+  /** Ancien format (saisie case par case, avant la saisie par place) : plus écrit, ignoré à la lecture. */
   tree?: Record<string, string>;
   /** Écrit par l'admin au calcul des points. */
   score?: PredictionScore;

@@ -161,8 +161,8 @@ export async function myPredictions(cid: string, divisionIds: string[], uid: str
   return new Map(entries.filter((entry): entry is readonly [string, PredictionDoc] => entry[1] !== null));
 }
 
-export async function savePrediction(cid: string, did: string, uid: string, picks: Places, bracketVersion: number, tree?: Record<string, string>) {
-  await setDoc(predictionRef(cid, did, uid), { picks, bracketVersion, updatedAt: serverTimestamp(), ...(tree ? { tree } : {}) });
+export async function savePrediction(cid: string, did: string, uid: string, picks: Places, bracketVersion: number) {
+  await setDoc(predictionRef(cid, did, uid), { picks, bracketVersion, updatedAt: serverTimestamp() });
 }
 
 export async function deletePrediction(cid: string, did: string, uid: string) {

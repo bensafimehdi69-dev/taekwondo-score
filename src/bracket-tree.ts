@@ -1,14 +1,15 @@
 /**
- * Arbre de tirage « comme sur la feuille » et pronostic par avancement (choix de Mehdi du 23/09/2026) :
- * le joueur fait avancer les athlètes à partir des quarts de finale (quarts, demies, finale, vainqueur) ;
- * chaque case n'accepte que les athlètes de sa branche, les incohérences sont donc impossibles.
- * Les places (vainqueur, finaliste, bronze, battus en quart) se déduisent de l'arbre.
+ * Arbre de tirage « comme sur la feuille » et pronostic par place (choix de Mehdi du 23/09/2026) :
+ * le joueur donne une place à un athlète (1er, 2e, 3e, battu en quart) et son chemin se dessine dans l'arbre.
+ * Un choix qui contredit l'arbre ne crée jamais d'incohérence : le plus récent l'emporte, les autres s'adaptent
+ * (l'athlète battu plus tôt descend de place ; un second perdant du même combat est retiré).
  *
  * Niveaux comptés depuis la finale : 0 = finale, 1 = demi-finale, 2 = quart, 3 = huitième, 4 = seizième…
  * Une case « vainqueur de X » est jouable pour X de niveau 0 à 3 (vainqueur d'un huitième = quart de finaliste).
  */
 import type { BracketDivision, BracketEntrant } from "./bracket-builder.ts";
 import type { Places } from "./model.ts";
+import type { Place } from "./prediction.ts";
 
 export type TreeLeaf = { kind: "athlete"; id: string; entrant: BracketEntrant };
 export type TreeFight = { kind: "fight"; id: string; code: string; level: number; children: TreeNode[] };
@@ -83,33 +84,68 @@ export function chainOf(tree: BracketTree, athleteId: string): string[] {
   return chain;
 }
 
-/** Retire un athlète de toutes les cases au-dessus de `from` (incluse). */
-function purge(tree: BracketTree, state: TreeState, athleteId: string, from: string): TreeState {
+/** Tour atteint pour une place : 0 = quart de finaliste, 1 = demi-finaliste, 2 = finaliste, 3 = vainqueur. */
+export const REACH: Record<Place, number> = { quarter: 0, bronze: 1, silver: 2, gold: 3 };
+const PLACE_OF_REACH: Place[] = ["quarter", "bronze", "silver", "gold"];
+
+/** Tour correspondant à chaque case de la chaîne : la dernière vaut 3 (vainqueur), puis 2, 1, 0. */
+const roundAt = (chain: string[], index: number) => 3 - (chain.length - 1 - index);
+
+/** Places possibles pour un athlète : un exempt qui entre en demie ne peut pas être battu en quart. */
+export function allowedPlaces(tree: BracketTree, athleteId: string): Place[] {
   const chain = chainOf(tree, athleteId);
-  const start = chain.indexOf(from);
-  if (start < 0) return state;
-  const next = { ...state };
-  for (const key of chain.slice(start)) if (next[key] === athleteId) delete next[key];
-  return next;
+  if (!chain.length) return [];
+  return PLACE_OF_REACH.filter((place) => {
+    const reach = REACH[place];
+    return reach === 3 || chain.some((_, i) => roundAt(chain, i) === reach + 1);
+  });
 }
 
-function place(tree: BracketTree, state: TreeState, key: string, athleteId: string): TreeState {
-  const previous = state[key];
-  const next = previous && previous !== athleteId ? purge(tree, state, previous, key) : { ...state };
-  next[key] = athleteId;
-  return next;
-}
+export type PlaceChange = { athleteId: string; from: Place; to?: Place };
 
-/** Fait avancer un athlète d'un tour : la première case de sa branche qu'il n'occupe pas encore. */
-export function advance(tree: BracketTree, state: TreeState, athleteId: string): TreeState {
-  const key = chainOf(tree, athleteId).find((k) => state[k] !== athleteId);
-  return key ? place(tree, state, key, athleteId) : state;
-}
-
-/** Vide une case : son occupant disparaît aussi des tours suivants. */
-export function clearSlot(tree: BracketTree, state: TreeState, key: string): TreeState {
-  const occupant = state[key];
-  return occupant ? purge(tree, state, occupant, key) : state;
+/**
+ * Donne une place à un athlète (null = la retirer) et rend l'arbre cohérent. Le nouveau choix est prioritaire :
+ * un athlète qui lui barre la route est battu à ce tour (il descend de place) ; deux perdants du même combat
+ * sont impossibles (le plus ancien est retiré). `changes` liste les autres athlètes touchés.
+ */
+export function setPlace(tree: BracketTree, places: Places, athleteId: string, place: Place | null): { places: Places; changes: PlaceChange[] } {
+  const previous = new Map<string, Place>();
+  for (const p of PLACE_OF_REACH) for (const id of places[p]) previous.set(id, p);
+  const order: Array<[string, Place]> = [
+    ...(place ? [[athleteId, place] as [string, Place]] : []),
+    ...[...previous].filter(([id]) => id !== athleteId),
+  ];
+  const occupied = new Map<string, string>();
+  const losers = new Set<string>();
+  const accepted = new Map<string, Place>();
+  for (const [id, wanted] of order) {
+    const chain = chainOf(tree, id);
+    if (!chain.length) continue;
+    let reach = REACH[wanted];
+    while (reach >= 0) {
+      const keys = chain.filter((_, i) => roundAt(chain, i) <= reach);
+      const blocked = keys.find((key) => occupied.has(key));
+      if (blocked) { reach = roundAt(chain, chain.indexOf(blocked)) - 1; continue; }
+      // Le combat perdu : celui dont le vainqueur occupe la case du tour suivant ; un seul perdant par combat.
+      const lostAt = reach < 3 ? chain.find((_, i) => roundAt(chain, i) === reach + 1) : undefined;
+      if ((reach < 3 && !lostAt) || (lostAt && losers.has(lostAt))) { reach = -1; break; }
+      for (const key of keys) occupied.set(key, id);
+      if (lostAt) losers.add(lostAt);
+      accepted.set(id, PLACE_OF_REACH[reach]);
+      break;
+    }
+  }
+  // Ordre stable : ceux qui gardent leur place d'abord, puis ceux qui en changent.
+  const next: Places = { gold: [], silver: [], bronze: [], quarter: [] };
+  for (const [id, p] of previous) if (accepted.get(id) === p) next[p].push(id);
+  for (const [id, p] of accepted) if (previous.get(id) !== p) next[p].push(id);
+  const changes: PlaceChange[] = [];
+  for (const [id, before] of previous) {
+    if (id === athleteId) continue;
+    const after = accepted.get(id);
+    if (after !== before) changes.push({ athleteId: id, from: before, ...(after ? { to: after } : {}) });
+  }
+  return { places: next, changes };
 }
 
 /** Participants d'un combat : un athlète entrant directement, ou le vainqueur choisi du sous-arbre. */
@@ -135,8 +171,8 @@ const loserOf = (state: TreeState, node: TreeFight) => {
 };
 
 /**
- * Places déduites de l'arbre. Seul ce qui est décidé compte : un battu en quart n'existe qu'une fois
- * le vainqueur de son quart choisi, un finaliste qu'une fois le vainqueur de la finale choisi.
+ * Places déduites d'un arbre (sert à vérifier `stateFromPlaces`). Seul ce qui est décidé compte : un battu en quart
+ * n'existe qu'une fois le vainqueur de son quart connu, un finaliste qu'une fois le vainqueur de la finale connu.
  */
 export function placesFromState(tree: BracketTree, state: TreeState): Places {
   const gold = state[tree.final.id];
@@ -147,8 +183,8 @@ export function placesFromState(tree: BracketTree, state: TreeState): Places {
 }
 
 /**
- * Arbre reconstitué depuis des places (pronostic enregistré, résultat saisi) : chaque athlète occupe
- * les cases de sa branche jusqu'au tour atteint. Une place incohérente (ancien pronostic) est ignorée.
+ * Arbre dessiné depuis les places (pronostic, résultat) : chaque athlète occupe les cases de sa branche
+ * jusqu'au tour atteint. Une place incohérente (ancien pronostic) est ignorée.
  */
 export function stateFromPlaces(tree: BracketTree, places: Places): TreeState {
   const reach: Array<[string, number]> = [
@@ -162,7 +198,7 @@ export function stateFromPlaces(tree: BracketTree, places: Places): TreeState {
     const chain = chainOf(tree, athleteId);
     // La chaîne se termine toujours par le titre : la dernière case vaut le tour 3 (vainqueur), l'avant-dernière
     // le tour 2 (finaliste), puis 1 (demi-finaliste) et 0 (quart de finaliste). Un exempt a une chaîne plus courte.
-    const keys = chain.filter((_, i) => 3 - (chain.length - 1 - i) <= depth);
+    const keys = chain.filter((_, i) => roundAt(chain, i) <= depth);
     if (keys.some((key) => state[key] && state[key] !== athleteId)) continue;
     for (const key of keys) state[key] = athleteId;
   }
@@ -181,18 +217,14 @@ export function playableSlots(tree: BracketTree): string[] {
   return keys;
 }
 
-/** Arbre enregistré relu sur un tirage peut-être corrigé depuis : seules les cases encore valables sont gardées. */
-export function sanitizeState(tree: BracketTree, state: TreeState | undefined): TreeState {
-  const clean: TreeState = {};
-  for (const [key, athleteId] of Object.entries(state ?? {})) {
-    if (chainOf(tree, athleteId).includes(key)) clean[key] = athleteId;
-  }
-  // Une case n'a de sens que si son occupant tient aussi les cases précédentes de sa branche (répété jusqu'à stabilité).
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const [key, athleteId] of Object.entries(clean)) {
-      const chain = chainOf(tree, athleteId);
-      if (chain.slice(0, chain.indexOf(key)).some((previous) => clean[previous] !== athleteId)) { delete clean[key]; changed = true; }
+/** Pronostic relu sur un tirage peut-être corrigé depuis : les places devenues impossibles sont retirées. */
+export function sanitizePlaces(tree: BracketTree, places: Places): Places {
+  let clean: Places = { gold: [], silver: [], bronze: [], quarter: [] };
+  for (const p of ["gold", "silver", "bronze", "quarter"] as Place[]) {
+    for (const id of places[p]) {
+      if (!allowedPlaces(tree, id).includes(p) || PLACE_OF_REACH.some((q) => clean[q].includes(id))) continue;
+      const attempt = setPlace(tree, clean, id, p);
+      if (attempt.places[p].includes(id) && !attempt.changes.length) clean = attempt.places;
     }
   }
   return clean;
