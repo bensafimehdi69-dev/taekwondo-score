@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { allowedPlaces, setPlace, stateFromPlaces, type BracketTree, type PlaceChange } from "../../../src/bracket-tree.ts";
 import { layoutSheet, SHEET } from "../../../src/bracket-layout.ts";
+import { flagOf } from "../../../src/flags.ts";
 import { PLACES, type Places } from "../../../src/model.ts";
 import type { Place } from "../../../src/prediction.ts";
 import { SHORT } from "./PicksSummary.tsx";
@@ -115,6 +116,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
   const placeOf = placeMap(places);
   const actualPlaceOf = result ? placeMap(result) : undefined;
   const name = (id: string) => entrants.get(id)?.name ?? "—";
+  const flag = (id: string) => flagOf(entrants.get(id)?.country);
   const describe = (changes: PlaceChange[]) => changes
     .map((c) => `${shortName(name(c.athleteId))} : ${SHORT[c.from]} → ${c.to ? SHORT[c.to] : "retiré"}`).join(" · ");
   const top = (y: number) => y - SHEET.boxHeight / 2;
@@ -160,7 +162,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
                     onClick={() => open?.(box.athleteId)} title={onChange ? "Choisir sa place" : undefined}>
                     <span className="seed">{entrant.seed ?? ""}</span>
                     <span className="name">{entrant.name}</span>
-                    <span className="country">{entrant.country ?? ""}</span>
+                    <span className="country">{flagOf(entrant.country) && <span className="flag" aria-hidden="true">{flagOf(entrant.country)}</span>}{entrant.country ?? ""}</span>
                     {place && <span className={`place place-${place} ${verdict}`}>{SHORT[place]}</span>}
                   </button>
                 );
@@ -179,6 +181,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
                 <button key={box.key} type="button" style={style} disabled={!onChange} title={name(occupant)}
                   className={`sheet-slot is-filled path-${placeOf.get(occupant)} ${box.level === 0 ? "is-final" : ""} ${verdict}`}
                   onClick={() => open?.(occupant)}>
+                  {flag(occupant) && <span className="flag" aria-hidden="true">{flag(occupant)}</span>}
                   {box.level === 0 ? name(occupant) : shortName(name(occupant))}
                 </button>
               );
@@ -190,7 +193,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
       {picking && (
         <div className="sheet-backdrop" onClick={() => setPicking(null)}>
           <div className="sheet" role="dialog" aria-label={`Place de ${name(picking)}`} onClick={(e) => e.stopPropagation()}>
-            <p className="sheet-title">{name(picking)}
+            <p className="sheet-title">{flag(picking) && <span className="flag" aria-hidden="true">{flag(picking)}</span>}{name(picking)}
               <span className="muted small">{[entrants.get(picking)?.country, entrants.get(picking)?.seed ? `tête de série ${entrants.get(picking)?.seed}` : ""].filter(Boolean).join(" · ")}</span>
             </p>
             <div className="place-options">

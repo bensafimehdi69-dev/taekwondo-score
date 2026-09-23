@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { buildTree, sanitizePlaces } from "../../../src/bracket-tree.ts";
 import { bracketOf, emptyPlaces, PLACE_LABELS, PLACES, picksFromPlaces, resultFromPlaces, type Places } from "../../../src/model.ts";
 import { scorePrediction, validatePrediction } from "../../../src/prediction.ts";
+import { flagOf } from "../../../src/flags.ts";
 import { BracketSheet } from "../components/BracketSheet.tsx";
 import { PicksSummary } from "../components/PicksSummary.tsx";
 import { getCompetition, getDivision, getPrediction, savePrediction } from "../data.ts";
@@ -113,7 +114,7 @@ export function DivisionPage({ cid, did }: { cid: string; did: string }) {
             <tbody>
               {lines.map((line) => (
                 <tr key={line.athleteId}>
-                  <td>{nameOf(line.athleteId)}</td>
+                  <td>{flagOf(bracket.entrants.find((e) => e.athleteId === line.athleteId)?.country) && <span className="flag" aria-hidden="true">{flagOf(bracket.entrants.find((e) => e.athleteId === line.athleteId)?.country)}</span>}{nameOf(line.athleteId)}</td>
                   <td>{PLACE_LABELS[line.place]}</td>
                   <td>{line.actual ? PLACE_LABELS[line.actual] : "—"}</td>
                   <td>{formatPoints(line.points)}{line.bonus > 0 && <small className="muted"> dont {formatPoints(line.bonus)} de bonus</small>}</td>
