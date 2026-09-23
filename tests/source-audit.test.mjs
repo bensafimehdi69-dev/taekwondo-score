@@ -98,17 +98,16 @@ async function read(file) {
 }
 
 const muju = "ec531622-40fb-48ff-b7be-6525868f7ec2.pdf";
-test(`real PDF: ${muju} (BASSETT Jaycee, code « WT », retrouvée et placée)`, { skip: skip(fixture(muju)) }, async () => {
+test(`real PDF: ${muju} (BASSETT Jaycee, code « WT » : lue par le moteur, rien à ajouter)`, { skip: skip(fixture(muju)) }, async () => {
   const draw = await read(muju);
-  const [women49, men58] = draw.brackets.map((d) => withSourceAthletes(d, draw.pages, { siblings: draw.brackets }));
-  assert.equal(women49.added.length, 1);
-  const bassett = women49.division.entrants.find((e) => e.name === "BASSETT Jaycee");
-  assert.deepEqual([bassett.country, bassett.seed, bassett.quarter, bassett.half], ["WT", 4, "316", "219"]);
-  assert.equal(women49.division.size, 31);
-  assert.deepEqual(women49.division.semiFights.sort(), ["219", "220"]);
-  assert.equal(men58.added.length, 0);
-  assert.deepEqual(men58.audit.notInSource, []);
-  assert.equal(men58.audit.sourceCount, 31);
+  // Retrouvée d'abord par la vérification ; depuis la règle « WT » du moteur, elle est lue directement, à la même place.
+  const bassett = draw.brackets[0].entrants.find((e) => e.name === "BASSETT Jaycee");
+  assert.deepEqual([bassett?.country, bassett?.seed, bassett?.quarter, bassett?.half], ["WT", 4, "316", "219"]);
+  assert.equal(draw.brackets[0].size, 31);
+  assert.deepEqual([...draw.brackets[0].semiFights].sort(), ["219", "220"]);
+  for (const { added, audit } of draw.brackets.map((d) => withSourceAthletes(d, draw.pages, { siblings: draw.brackets }))) {
+    assert.deepEqual([added.length, audit.notInSource.length, audit.uncertain.length, audit.sourceCount], [0, 0, 0, 31]);
+  }
 });
 
 for (const file of ["Draws - Day 1 - Fujairah Open 2025.pdf", "GO-2026_Draws_Cadets_Juniors.pdf", "euro_u21_2025.pdf", "Drawsheets Saturday Day 2.pdf"]) {

@@ -159,7 +159,8 @@ function cleanAthleteName(rowText: string, team: string): string {
     .replace(/\b(?:19|20)\d{2}\b/g, " ")
     .replace(/\b[1-9]\d{2}\b/g, " ")
     .replace(/^\s*(?:\d+|\([X\d]+\))[.)-]?\s*/i, " ")
-    .replace(/\b(?:ROUND|QUARTER|SEMI(?:FINAL)?|FINAL|WINNER|WINNERS|FREE DRAW|BYE)\b/gi, " ")
+    // « Semi » seul est aussi un prénom (« MIYANYEDI Semi ozkan ») : seul le libellé complet « Semi-final » est effacé.
+    .replace(/\b(?:ROUND|QUARTER|SEMI[\s-]*FINALS?|FINAL|WINNER|WINNERS|FREE DRAW|BYE)\b/gi, " ")
     .replace(/[|,:;–—]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -451,10 +452,12 @@ function anchorsForTeam(page: ParsedPage, team: string): Array<{ anchor: VisualT
 
 type DrawEntry = { anchor: VisualTextItem; name: string; country: string; affiliation: string; sourceText: string; format: "taekoplan" | "wt" | "unknown"; seed?: number };
 
+// Code pays : 3 lettres, ou « WT », l'équipe des réfugiés de World Taekwondo (« (4) BASSETT Jaycee WT », Muju 2026).
+const COUNTRY = "[A-Z]{3}|WT";
 // Livrets européens : le pays précède le nom, « (1) EGY NOM Prénom » ou « BIH Nom, Prénom ».
-const COUNTRY_LAST = /^(.+?)\s+\(?([A-Z]{3})\)?\s*$/;
-const COUNTRY_FIRST = /^(?:\([Xx\d]+\)\s*)?([A-Z]{3})\s+(.+)$/;
-const ABBREVIATED_WINNER_COUNTRY = /\([A-Z]{3}\)\s*$/;
+const COUNTRY_LAST = new RegExp(`^(.+?)\\s+\\(?(${COUNTRY})\\)?\\s*$`);
+const COUNTRY_FIRST = new RegExp(`^(?:\\([Xx\\d]+\\)\\s*)?(${COUNTRY})\\s+(.+)$`);
+const ABBREVIATED_WINNER_COUNTRY = new RegExp(`\\((?:${COUNTRY})\\)\\s*$`);
 
 /**
  * La page place-t-elle le pays avant le nom ? On ne compte que les lignes sans ambiguïté
