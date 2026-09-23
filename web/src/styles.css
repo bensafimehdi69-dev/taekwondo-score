@@ -528,3 +528,33 @@ button.danger-solid { background: var(--error); color: #fff; }
 }
 /* Champs de date et d'heure : ne jamais dépasser leur colonne sur petit écran. */
 .form label, .form input, .form select { min-width: 0; max-width: 100%; }
+
+/* Accueil façon iOS 27 : date en surtitre, grand titre, widgets, étapes du jeu */
+.home-header { display: grid; gap: 2px; }
+.eyebrow { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.home-header h1 { font-size: 34px; }
+.hero h2 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -0.02em; }
+.steps { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+.step-number { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.widgets { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.widget {
+  display: grid; gap: 2px; align-content: start; padding: 14px 16px 16px; border-radius: var(--radius-lg); background: var(--surface);
+  box-shadow: var(--shadow); color: var(--text); text-decoration: none; min-height: 118px; transition: transform 0.15s;
+}
+.widget:active { transform: scale(0.98); }
+.widget-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; margin-bottom: 8px; }
+.widget-icon svg { width: 20px; height: 20px; }
+.tone-gold { background: var(--gold-bg); color: var(--gold); }
+.tone-accent { background: var(--accent-soft); color: var(--accent); }
+.widget-value { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.widget-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.competition-card { gap: 6px; }
+.competition-card .chip { margin-bottom: 2px; }
+.chip-urgent { background: var(--error-bg); color: var(--error); }
+.empty-state { margin: 0; padding: 16px 18px; border-radius: var(--radius-lg); background: var(--surface); color: var(--muted); box-shadow: var(--shadow); }
+.skeleton { height: 118px; border-radius: var(--radius-lg); background: linear-gradient(90deg, var(--fill), var(--surface), var(--fill)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+.home section { display: grid; gap: 10px; }
+.home section h2 { margin: 10px 0 0; }
