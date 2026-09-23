@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBrackets } from "../src/bracket-builder.ts";
 import { updateEntrant } from "../src/bracket-editing.ts";
-import { entryState, exportControl, summarize } from "../web/src/control.ts";
+import { entryState, exportControl, summarize } from "../web/src/control/control.ts";
 import { athlete, draw8 } from "./fixtures-bracket.mjs";
 
 const [div8] = buildBrackets(draw8());

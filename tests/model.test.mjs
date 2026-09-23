@@ -56,3 +56,19 @@ test("document de division : un identifiant d'athlète en double est refusé", (
   const doubled = { ...division, entrants: [...division.entrants, division.entrants[0]] };
   assert.throws(() => divisionDoc(doubled, { day: "2026-10-12", lockAt: new Date(), source: { fileName: "", sha256: "", pages: [] } }), /double/);
 });
+
+test("attribution d'une place : une place par athlète, remplacement en finale, limite en bronze", async () => {
+  const { assignPlace, emptyPlaces } = await import("../src/model.ts");
+  const limits = { gold: 1, silver: 1, bronze: 2, quarter: 4 };
+  let { places } = assignPlace(emptyPlaces(), "A", "gold", limits);
+  ({ places } = assignPlace(places, "B", "gold", limits));
+  assert.deepEqual(places.gold, ["B"]);
+  ({ places } = assignPlace(places, "B", "bronze", limits));
+  assert.deepEqual([places.gold, places.bronze], [[], ["B"]]);
+  ({ places } = assignPlace(places, "C", "bronze", limits));
+  const full = assignPlace(places, "D", "bronze", limits);
+  assert.match(full.error, /Déjà 2 athlètes/);
+  assert.deepEqual(full.places.bronze, ["B", "C"]);
+  assert.deepEqual(assignPlace(places, "C", null, limits).places.bronze, ["B"]);
+  assert.match(assignPlace(places, "E", "quarter", { ...limits, quarter: 0 }).error, /Pas de place/);
+});
