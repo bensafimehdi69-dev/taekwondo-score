@@ -50,6 +50,19 @@ test("TaekoPlan : la tête de série imprimée sur la ligne du dossard est lue",
   assert.deepEqual(byName["KAZLOU Aliaksandr"], ["AIN", 8, "taekoplan"]);
 });
 
+test("équipe des réfugiés : le code « WT » est lu, sans ouvrir la porte à d'autres codes de deux lettres", () => {
+  assert.deepEqual(athletes([
+    item("(4) BASSETT Jaycee WT", 20, 110), item("(1) PSARROS A.N. GRE", 20, 170), item("KIM Anna XY", 20, 230),
+    item("BASSETT J. (WT)", 240, 120), item("GUN Youngsuk USA", 790, 110),
+  ]), [["BASSETT Jaycee", "WT", 4], ["GUN Youngsuk", "USA", null], ["PSARROS A.N.", "GRE", 1]]);
+});
+
+test("« Semi » est gardé dans un nom ; seul le libellé de tour « Semi-final » est effacé", () => {
+  assert.deepEqual(athletes([
+    item("MIYANYEDI Semi ozkan GER", 20, 110), item("Semi-final DURAND Lucas FRA", 20, 170), item("SEMIFINAL", 240, 120, 60),
+  ]), [["DURAND Lucas", "FRA", null], ["MIYANYEDI Semi ozkan", "GER", null]]);
+});
+
 // PDF réels privés (jamais commités).
 const locations = process.env.TKD_PDF_FIXTURES_DIRS ? JSON.parse(process.env.TKD_PDF_FIXTURES_DIRS)
   : [process.env.TKD_PDF_FIXTURES_DIR || "fixtures"];
@@ -99,4 +112,14 @@ test(`real PDF: ${fujairah} (têtes de série TaekoPlan)`, { skip: skip(fixture(
   assert.deepEqual(brackets.map((d) => d.entrants.filter((e) => e.seed !== undefined).length), [15, 12, 16, 11, 5, 10, 6, 9]);
   const hamdi = brackets[0].entrants.find((e) => e.name === "HAMDI Riad");
   assert.equal(hamdi?.seed, 1);
+});
+
+const germanOpen = "GO-2026_Draws_Cadets_Juniors.pdf";
+test(`real PDF: ${germanOpen} (« Semi » gardé dans un prénom)`, { skip: skip(fixture(germanOpen)) }, async () => {
+  const path = fixture(germanOpen);
+  assert.ok(path, "Required private PDF fixture is missing: " + germanOpen);
+  const { brackets } = await read(germanOpen, path);
+  const cadets61 = brackets.find((d) => d.category === "Cadet · Men · -61 kg");
+  assert.equal(cadets61?.status, "ok");
+  assert.deepEqual(cadets61.entrants.find((e) => e.name.startsWith("MIYANYEDI"))?.name, "MIYANYEDI Semi ozkan");
 });
