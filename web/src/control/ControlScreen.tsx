@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BracketIcon } from "../components/Icons.tsx";
 import type { BracketDivision } from "../../../src/bracket-builder.ts";
 import { addEntrant, moveEntrant, removeEntrant, setCategory, setFinalFight, updateEntrant } from "../../../src/bracket-editing.ts";
 import { readDraw } from "../../../src/read-draw.ts";
@@ -130,6 +131,7 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
             </div>
           ) : (
             <button className="dropzone" onClick={() => input.current?.click()}>
+              <span className="app-mark" aria-hidden="true"><BracketIcon /></span>
               <strong>Déposez un PDF de tirage ici</strong>
               <span className="muted">ou cliquez pour le choisir. Le PDF est lu dans ce navigateur et n'est envoyé nulle part.</span>
             </button>
@@ -152,7 +154,8 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
         <div className="workspace" data-view={mobileView}>
           <nav className="sidebar" aria-label="Divisions">
             <div className="summary">
-              <div><strong>{summary.validated}</strong>/{summary.total} validées</div>
+              <div className="summary-value"><strong>{summary.validated}</strong> / {summary.total} <span className="muted">validées</span></div>
+              <progress className="bar" max={summary.total || 1} value={summary.validated} aria-label="Divisions validées" />
               <div className="muted">Justes sans correction : <strong>{summary.validatedAsRead}</strong>/{summary.validated}
                 {summary.validated > 0 && ` (${Math.round((summary.validatedAsRead / summary.validated) * 100)} %)`}</div>
               <div className="muted">Lues sans anomalie : {summary.readOk}/{summary.total}</div>
@@ -169,6 +172,7 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
                 return (
                   <li key={e.original.key}>
                     <button className={`division ${e.original.key === selectedKey ? "is-selected" : ""}`} onClick={() => select(e.original.key)}>
+                      <span className={`division-dot dot-${status.tone}`} aria-hidden="true" />
                       <span className="division-name">{e.current.category}</span>
                       <span className="division-meta">
                         <span className="muted">p. {e.current.pages.join("-")} · {e.current.size} ath.</span>
@@ -233,10 +237,11 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
   return (
     <main ref={panel} className={`division-panel ${selectedAthlete ? "is-editing" : ""}`}>
       <header className="division-head">
-        <button className="link back" onClick={onBack}>← Divisions</button>
+        <button className="link back" onClick={onBack}>‹ Divisions</button>
         <div>
+          <p className="eyebrow">Page {current.pages.join("-")} · {current.size} athlètes</p>
           <h1>{current.category}</h1>
-          <p className="muted">{current.size} athlètes · {current.semiFights.length} demi-finales · {current.quarterFights.length} quarts · page {current.pages.join("-")}</p>
+          <p className="muted">{current.semiFights.length} demi-finales · {current.quarterFights.length} quarts</p>
           <CategoryEditor division={current} onChange={(patch) => onEdit((d) => setCategory(d, patch))} />
         </div>
         <div className="head-actions">

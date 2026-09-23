@@ -639,3 +639,96 @@ button.danger-solid { background: var(--error); color: #fff; }
 /* Lignes de liste : le contenu se replie au lieu de déborder (pastilles longues sur petit écran). */
 .division-list li, .division-row > * { min-width: 0; }
 .division-badges .chip { white-space: normal; max-width: 100%; }
+
+/* ---------- Écran de contrôle façon iOS 27 ---------- */
+.app { background: var(--bg); }
+.topbar { padding: 10px 16px; }
+.topbar .brand { font-weight: 700; color: var(--accent); text-decoration: none; }
+.empty { gap: 16px; }
+.dropzone {
+  display: grid; justify-items: center; gap: 10px; padding: 40px 32px; max-width: 520px; border: none; border-radius: 28px;
+  background: var(--surface); box-shadow: var(--shadow), inset 0 0 0 2px var(--fill); color: var(--text); font-weight: 400;
+}
+.dropzone strong { font-size: 20px; letter-spacing: -0.02em; }
+.card { border: none; border-radius: var(--radius-lg); box-shadow: var(--shadow); display: grid; gap: 8px; }
+progress, progress.bar { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border: none; border-radius: 3px; background: var(--fill); overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--fill); border-radius: 3px; }
+progress::-webkit-progress-value { background: var(--accent); border-radius: 3px; }
+progress::-moz-progress-bar { background: var(--accent); border-radius: 3px; }
+
+/* Liste des divisions : colonne sur fond système, lignes groupées avec pastille d'état */
+.sidebar { background: var(--bg); border-right: 0.5px solid var(--separator); border-radius: 0; }
+.summary { margin: 12px; padding: 14px 16px; border: none; border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow); gap: 6px; }
+.summary-value { font-size: 15px; }
+.summary-value strong { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+.sidebar .segmented.full { margin: 0 12px 8px; }
+.sidebar ul { margin: 0 12px 12px; padding: 0; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow); flex: 0 1 auto; }
+.sidebar li { position: relative; }
+.sidebar li + li::before { content: ""; position: absolute; left: 34px; right: 0; top: 0; border-top: 0.5px solid var(--separator); }
+.division { position: relative; border: none; border-radius: 0; padding: 11px 14px 11px 34px; gap: 3px; background: none; }
+.division.is-selected { background: var(--accent-soft); border: none; }
+.division-dot { position: absolute; left: 13px; top: 16px; width: 10px; height: 10px; border-radius: 50%; background: var(--fill-strong); }
+.dot-done, .dot-done-fixed { background: var(--ok); }
+.dot-todo { background: var(--accent); }
+.dot-review { background: var(--warn); }
+.division-name { font-size: 15px; }
+
+/* Panneau de la division */
+.division-panel { padding: 16px 20px; gap: 12px; }
+.division-head h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; }
+.division-head p { margin: 2px 0 0; }
+.category-editor { padding: 10px 12px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.alert { border-radius: var(--radius-lg); padding: 12px 16px; }
+.audit-line { border-radius: 12px; padding: 8px 14px; }
+.segmented.pane-tabs { background: var(--fill); }
+.split { gap: 14px; }
+.pdf-pane, .bracket-pane { border: none; border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.pane-bar { border-bottom: 0.5px solid var(--separator); }
+
+/* Arbre reconstruit : une carte par demi-finale, athlètes en lignes séparées par un filet */
+.bracket-final { gap: 10px; }
+.bracket-final input { width: 10ch; }
+.half { border: none; border-radius: 18px; background: var(--bg); padding: 10px; gap: 10px; }
+.half.is-orphan { background: var(--error-bg); }
+.half header { padding: 2px 4px; }
+.quarter { background: var(--surface); border-radius: 14px; padding: 6px 0 2px; box-shadow: 0 0 0 0.5px var(--separator); }
+.quarter-head { padding: 2px 12px 6px; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11px; font-weight: 600; align-items: center; }
+.quarter-head .link { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.quarter ol { gap: 0; }
+.quarter li { position: relative; }
+.quarter li + li::before { content: ""; position: absolute; left: 44px; right: 0; top: 0; border-top: 0.5px solid var(--separator); }
+.entrant { border: none; border-radius: 0; background: none; padding: 8px 12px; min-height: 40px; }
+.entrant.is-selected { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); border: none; }
+.entrant .seed { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; }
+.entrant .seed:not(:empty) { background: var(--accent-soft); }
+.entrant .country { font-family: inherit; font-weight: 600; color: var(--muted); }
+.tag { border-radius: 999px; padding: 1px 7px; }
+
+/* Correction d'un athlète : carte en bas du volet (ordinateur), panneau flottant en verre (téléphone) */
+.editor { border-top: none; margin: 8px; border-radius: 20px; background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-edge); }
+.editor header strong { font-size: 17px; }
+@media (max-width: 1000px) {
+  .sidebar { border-right: none; }
+  .division-panel { padding: 12px 16px calc(96px + env(safe-area-inset-bottom)); }
+  .division-panel.is-editing { padding-bottom: 72dvh; }
+  .head-actions {
+    left: 50%; right: auto; bottom: calc(12px + env(safe-area-inset-bottom)); width: min(720px, calc(100% - 24px)); transform: translateX(-50%);
+    padding: 8px; border: none; border-radius: 24px;
+    background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-edge);
+  }
+  .head-actions button { border-radius: 16px; }
+  .segmented.pane-tabs { top: -12px; box-shadow: 0 0 0 12px var(--bg); }
+  .editor {
+    left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); margin: 0; border: none; border-radius: 28px;
+    padding: 26px 16px 16px; max-height: 70dvh;
+  }
+  .editor::before { content: ""; position: absolute; top: 8px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: var(--fill-strong); }
+  .back { font-size: 16px; }
+}
+/* En-tête du contrôle : le lien retour se raccourcit, les boutons restent entiers. */
+.topbar .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar button, .topbar .button { flex-shrink: 0; white-space: nowrap; }
+.topbar .spacer { flex: 1 0 0; }
+/* Colonne des divisions : le résumé et les filtres gardent leur hauteur, seule la liste défile. */
+.sidebar > * { flex-shrink: 0; }
+.sidebar > ul { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
