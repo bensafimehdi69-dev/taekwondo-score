@@ -434,3 +434,5 @@ button.danger-solid { background: var(--error); border-color: var(--error); colo
 .admin-day { border-top: 1px solid var(--border); padding-top: 8px; }
 .admin-day h3 { margin-bottom: 2px; }
 .admin-division .chip { margin-left: 6px; }
+.file-button { display: inline-flex; align-items: center; cursor: pointer; }
+.read-result { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }

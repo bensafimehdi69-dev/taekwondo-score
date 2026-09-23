@@ -16,7 +16,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Classements : par compétition et général, cumul brut, permanent ; départage : vainqueurs exacts puis ancienneté.
 - Pronostic incomplet au verrouillage : scoré sur les places remplies (décision du 23/09/2026).
 - Pronostics des autres utilisateurs : visibles seulement après le verrouillage de la division (décision du 23/09/2026).
-- Résultats : saisis par l'admin en cliquant dans l'arbre (le moteur ne lit pas les résultats).
+- Résultats : saisis par l'admin dans l'arbre ; depuis le 23/09/2026 (étape 1), ils peuvent être préremplis depuis le PDF des résultats d'une journée (`src/result-reader.ts` : tableau « Classification » / « Prize winners », battus en quart déduits seulement quand l'arbre les rend certains ; un classement incohérent avec l'arbre est signalé, jamais forcé). L'admin vérifie et enregistre chaque division. Étape 2 possible : lire les vainqueurs réimprimés à chaque combat (tous les battus en quart).
 - Stack : TypeScript partout. Moteur PDF dans le navigateur de l'admin, React, Firebase (Auth + Firestore). Firebase remplace l'API Node.js + PostgreSQL prévue au départ (décision du 23/09/2026).
 
 ## Règles pour le moteur de lecture PDF (`src/pdf-reader.ts`, `src/team-path-parser.ts`)

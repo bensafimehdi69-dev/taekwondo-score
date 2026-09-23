@@ -13,6 +13,7 @@ import { AdminHomePage } from "./pages/admin/AdminHome.tsx";
 import { AdminResultsPage } from "./pages/admin/AdminResults.tsx";
 
 // Le moteur de lecture PDF (PDF.js, OCR) ne sert qu'à l'admin : chargé à la demande, pas dans l'app des joueurs.
+const AdminResultsImportPage = lazy(() => import("./pages/admin/AdminResultsImport.tsx").then((m) => ({ default: m.AdminResultsImportPage })));
 const AdminImportPage = lazy(() => import("./pages/admin/AdminImport.tsx").then((m) => ({ default: m.AdminImportPage })));
 
 type Route = { pattern: string; render: (params: Record<string, string>) => ReactNode; admin?: boolean; bare?: boolean };
@@ -29,6 +30,7 @@ const routes: Route[] = [
   { pattern: "/admin/competitions/:cid", admin: true, render: (p) => <AdminCompetitionPage cid={p.cid} /> },
   { pattern: "/admin/competitions/:cid/import", admin: true, bare: true, render: (p) => <AdminImportPage cid={p.cid} /> },
   { pattern: "/admin/competitions/:cid/jours/:day/import", admin: true, bare: true, render: (p) => <AdminImportPage key={p.day} cid={p.cid} day={p.day} /> },
+  { pattern: "/admin/competitions/:cid/jours/:day/resultats", admin: true, render: (p) => <AdminResultsImportPage key={p.day} cid={p.cid} day={p.day} /> },
   { pattern: "/admin/competitions/:cid/divisions/:did/resultats", admin: true, render: (p) => <AdminResultsPage key={p.did} cid={p.cid} did={p.did} /> },
 ];
 
@@ -69,7 +71,7 @@ export function App() {
           {session.user && <button className="link" onClick={() => signOut(auth)}>Se déconnecter</button>}
         </div>
       )}
-      {content}
+      <Suspense fallback={<main className="page"><p className="muted">Chargement du lecteur de PDF…</p></main>}>{content}</Suspense>
     </div>
   );
 }
