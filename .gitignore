@@ -1,0 +1,4 @@
+node_modules/
+pdf-tests/
+*.pdf
+.env

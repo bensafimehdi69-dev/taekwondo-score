@@ -1,0 +1,68 @@
+--- src.orig/team-path-parser.ts	2026-09-23 05:20:58.108754287 +0000
++++ src/team-path-parser.ts	2026-09-23 05:24:20.431521657 +0000
+@@ -28,6 +28,8 @@
+   affiliation?: string;
+   drawFormat?: "taekoplan" | "wt" | "unknown";
+   sourceBounds?: { x: number; y: number; width: number; height: number };
++  /** Numéro de tête de série imprimé devant le nom, ex. « (1) NOM KOR ». Absent si non tête de série ou non imprimé. */
++  seed?: number;
+ };
+ 
+ export type TeamDrawAnalysis = {
+@@ -37,6 +39,14 @@
+   warnings: string[];
+ };
+ 
++/** Lit « (1) NOM » ; « (x) » ou « (X) » signifie non tête de série. */
++export function parseSeed(sourceText: string): number | undefined {
++  const match = sourceText.replace(/\u00a0/g, " ").match(/^\s*\((\d{1,3})\)/);
++  if (!match) return undefined;
++  const seed = Number(match[1]);
++  return seed >= 1 ? seed : undefined;
++}
++
+ const tidy = (value: string) => value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+ 
+ export const normalizeDrawText = (value: string) => tidy(value).normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toUpperCase();
+@@ -501,6 +511,9 @@
+       if (!match) continue;
+       const name = cleanAthleteName(match[1], "");
+       if (!likelyName(name) || looksLikeTeamOnlyName(name)) continue;
++      // Livrets de résultats WT : le vainqueur est réimprimé dans l'arbre sous forme abrégée,
++      // « NOM X.Y. (PAYS) ». Ce n'est pas un entrant.
++      if (/\([A-Z]{3}\)\s*$/.test(text) && /(?:^|\s)(?:[A-Z]\.\s?)+$/.test(name)) continue;
+       entries.push({ anchor: item, name, country: match[2], affiliation: "", sourceText: text, format: "wt" });
+     }
+   }
+@@ -552,6 +565,7 @@
+         confidence,
+         warnings,
+         sourceText: found.sourceText,
++        ...(found.format === "wt" && parseSeed(found.sourceText) !== undefined ? { seed: parseSeed(found.sourceText) } : {}),
+       });
+     }
+   }
+--- src.orig/read-draw.ts	2026-09-23 05:20:58.108799038 +0000
++++ src/read-draw.ts	2026-09-23 05:23:07.726522211 +0000
+@@ -1,6 +1,7 @@
+ import { readPdfFile } from "./pdf-reader.ts";
+ import { buildDrawIndex, searchDrawIndex, type DrawSearchMode } from "./team-path-parser.ts";
+ import { verifyDrawImport } from "./import-verification.ts";
++import { buildBrackets } from "./bracket-builder.ts";
+ 
+ /** Pure read/search operation: no upload, persistence, following or scores. */
+ export async function readDraw(
+@@ -23,5 +24,12 @@
+       issues: [{ code: "not-assessed", field: "identity" as const, message: "Review this entry against the PDF." }],
+     },
+   }));
+-  return { pages, index, verification, results: { ...results, athletes } };
++  // Arbres par division pour Taekwondo Score : une division passe en revue si un de ses athlètes n'est pas « recognised ».
++  const brackets = buildBrackets(index).map((division) => {
++    const unverified = division.entrants.filter((e) => verification.athletes[e.athleteId]?.status !== "recognised").length;
++    if (!unverified) return division;
++    return { ...division, status: "review" as const,
++      issues: [...division.issues, `${unverified} athlète(s) à vérifier selon le contrôle de lecture.`] };
++  });
++  return { pages, index, verification, brackets, results: { ...results, athletes } };
+ }
