@@ -31,16 +31,18 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Auth : e-mail + mot de passe et Google activés ; Apple à ajouter pour l'app iOS. Domaines autorisés : `taekwondo-score-app.firebaseapp.com`, `taekwondo-score-app.web.app` (ajouter `localhost` pour le développement local).
 - Rôle admin : custom claim `admin`, posé par `scripts/set-admin.mjs` ; les règles le liront dans `request.auth.token.admin`.
 - Clé du compte de service : `~/.config/taekwondo-score/service-account.json`, hors du dépôt ; `FIREBASE_SERVICE_ACCOUNT` (chemin ou JSON) lu dans l'environnement ou dans `.env` (ignoré par git). Ne jamais committer ni afficher la clé.
-- `firestore.rules` est la référence : tout est fermé tant que le modèle de données de la phase 1 n'est pas validé.
+- Modèle de données : `src/model.ts` (competitions, divisions, predictions, leaderboard, users ; conversion d'une division contrôlée, heure de verrouillage locale → UTC). Toute modification se fait aussi dans `firestore.rules`.
+- `firestore.rules` est la référence, testée dans l'émulateur (`tests-rules/`) : division lisible une fois ouverte dans une compétition publiée ; pronostic écrit par son auteur tant que la division est ouverte et avant `lockAt` (horloge du serveur), athlètes de l'arbre seulement, une place chacun, dans la limite des places ; pronostics des autres lisibles après le verrouillage ; score et classements écrits par l'admin ; profil = pseudo (2 à 30 caractères) + date d'inscription du serveur.
 - Tests des règles : émulateur Firestore, Java 21 installé par Homebrew (`openjdk@21`, hors PATH : `$(brew --prefix openjdk@21)/bin`).
-- Proposition à valider : verrouillage par les règles (`request.time` avant l'heure de début de la division), points calculés dans le navigateur de l'admin à la saisie des résultats (plan gratuit Spark), Cloud Functions plus tard si besoin (plan Blaze, activé par Mehdi).
+- Décidé : verrouillage par les règles (statut « verrouillée » déduit de l'heure, pas stocké), points calculés dans le navigateur de l'admin à la saisie des résultats (plan gratuit Spark), Cloud Functions plus tard si besoin (plan Blaze, activé par Mehdi). La cohérence d'un pronostic avec l'arbre est imposée par l'app et revérifiée au calcul des points (les règles ne savent pas la vérifier).
 
 ## Commandes
 - `npm install --ignore-scripts` puis `npm run typecheck` et `npm test` (Node 22.18 ou plus récent).
 - `npm run brackets -- "pdf-tests/tirage.pdf"` : une ligne par division, statut ok / review et anomalies.
 - Tests sur PDF réels : `TKD_PDF_FIXTURES_DIR=pdf-tests TKD_REQUIRE_PDF_FIXTURES=1 npm test`.
 - `npm run admin -- utilisateur@exemple.com [--retirer]` : accorde ou retire le rôle admin (le compte doit exister).
-- `firebase deploy --only firestore` : publie `firestore.rules` et `firestore.indexes.json`.
+- `npm run test:rules` : règles Firestore testées dans l'émulateur (projet `demo-taekwondo-score`, jamais le vrai ; Java 21 et CLI `firebase` requis).
+- `firebase deploy --only firestore` : publie `firestore.rules` et `firestore.indexes.json` (après `npm run test:rules`).
 - `npm run dev` : écran de contrôle des tirages sur http://localhost:5173 (app `web/`, moteur importé depuis `src/`) ; `npm run build` : version compilée dans `dist/`.
 
 ## Écran de contrôle (`web/`)
@@ -56,7 +58,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Tableaux coupés sur plusieurs pages (TaekoPlan « Page 1 of 3 ») : raccordés par `bracket-builder.ts` (la « finale » de chaque page de moitié est une demi-finale de la page de la finale ; les athlètes réimprimés sont écartés, les noms coupés ne sont rattachés que s'il n'y a qu'un candidat). « Contestants » se contrôle sur la division entière (`withReadingChecks`).
 - Règles du 23/09/2026 dans `team-path-parser.ts` : tête de série TaekoPlan lue sur la ligne du dossard (« B/1353 (1) NOM ») ; livrets européens avec le pays avant le nom (« (1) EGY NOM Prénom », « BIH Nom, Prénom »), appliqué seulement si ce format domine la page (3 lignes non ambiguës au moins).
 - Limites restantes : format UPTKD (Spanish Open 2026, colonnes « Rnd 1 / Q-Final ») non reconnu ; liaisons de combats contradictoires sur certaines pages européennes ; numéros de combat à décimale (« 928.1 ») non lus ; PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat ; U21 World Championship : format non reconnu.
-- Prochaine étape : modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
+- Modèle Firestore et règles faits et testés (23/09/2026).
+- Prochaine étape : phase 1 (MVP web) — connexion et pseudo, publication d'une division contrôlée par l'admin, pronostic par clic dans l'arbre, saisie des résultats et calcul des points, classements.
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.

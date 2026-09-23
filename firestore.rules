@@ -1,11 +1,141 @@
 rules_version = '2';
 
-// Tout est fermé tant que le modèle de données de la phase 1 n'est pas validé.
-// Le rôle admin se lira dans request.auth.token.admin (voir scripts/set-admin.mjs).
+// Règles de Taekwondo Score. Modèle : src/model.ts ; tests : tests-rules/ (npm run test:rules).
+// - Rôle admin : custom claim `admin` (scripts/set-admin.mjs).
+// - Une division se lit une fois ouverte, dans une compétition publiée.
+// - Un pronostic s'écrit tant que la division est ouverte et avant son heure de verrouillage, selon l'horloge
+//   du serveur (request.time) : l'heure affichée par le téléphone ne compte pas.
+// - Un pronostic ne contient que des athlètes de l'arbre, chacun à une seule place, dans la limite des places
+//   que l'arbre permet. La cohérence avec l'arbre (moitiés, quarts) est imposée par l'app et revérifiée
+//   au calcul des points.
+// - Les pronostics des autres se lisent seulement après le verrouillage (décision du 23/09/2026).
+// - Points et classements sont écrits par l'admin.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function isUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function competitionOf(cid) {
+      return get(/databases/$(database)/documents/competitions/$(cid)).data;
+    }
+
+    function divisionOf(cid, did) {
+      return get(/databases/$(database)/documents/competitions/$(cid)/divisions/$(did)).data;
+    }
+
+    function exactKeys(data, keys) {
+      return data.keys().hasAll(keys) && data.keys().hasOnly(keys);
+    }
+
+    function isPublic(division) {
+      return division.status in ['open', 'results', 'closed'];
+    }
+
+    function isLocked(division) {
+      return request.time >= division.lockAt;
+    }
+
+    // Pseudo : 2 à 30 caractères.
+    function validDisplayName(name) {
+      return name is string && name.size() >= 2 && name.size() <= 30;
+    }
+
+    function validCompetition(data) {
+      return exactKeys(data, ['name', 'location', 'timezone', 'startDate', 'endDate', 'published'])
+        && data.name is string && data.name.size() > 0
+        && data.location is string
+        && data.timezone is string && data.timezone.size() > 0
+        && data.startDate is string && data.endDate is string
+        && data.published is bool;
+    }
+
+    function validDivision(data) {
+      return data.keys().hasAll(['day', 'category', 'status', 'lockAt', 'version', 'bracket', 'athleteIds', 'expected', 'source'])
+        && data.status in ['draft', 'review', 'open', 'results', 'closed']
+        && data.day is string
+        && data.lockAt is timestamp
+        && data.version is int && data.version >= 1
+        && data.bracket is map
+        && data.athleteIds is list
+        && data.expected is map;
+    }
+
+    // Places : une liste d'athlètes par place, d'athlètes de l'arbre, chacun une seule fois.
+    function validPlaces(places, division) {
+      let all = places.gold.concat(places.silver).concat(places.bronze).concat(places.quarter);
+      return exactKeys(places, ['gold', 'silver', 'bronze', 'quarter'])
+        && places.gold.size() <= division.expected.gold
+        && places.silver.size() <= division.expected.silver
+        && places.bronze.size() <= division.expected.bronze
+        && places.quarter.size() <= division.expected.quarter
+        && all.hasOnly(division.athleteIds)
+        && all.toSet().size() == all.size();
+    }
+
+    function canPredict(division) {
+      return division.status == 'open' && !isLocked(division);
+    }
+
+    function validPrediction(data, division) {
+      return exactKeys(data, ['picks', 'bracketVersion', 'updatedAt'])
+        && data.updatedAt == request.time
+        && data.bracketVersion == division.version
+        && validPlaces(data.picks, division);
+    }
+
+    match /users/{uid} {
+      allow read: if isUser(uid) || isAdmin();
+      allow create: if isUser(uid)
+        && exactKeys(request.resource.data, ['displayName', 'createdAt'])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.createdAt == request.time;
+      allow update: if isUser(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName'])
+        && validDisplayName(request.resource.data.displayName);
+      allow delete: if isAdmin();
+    }
+
+    match /competitions/{cid} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow create, update: if isAdmin() && validCompetition(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /divisions/{did} {
+        allow read: if isAdmin() || (competitionOf(cid).published == true && isPublic(resource.data));
+        allow create, update: if isAdmin() && validDivision(request.resource.data);
+        allow delete: if isAdmin();
+
+        match /predictions/{uid} {
+          allow read: if isAdmin() || isUser(uid)
+            || (signedIn() && isPublic(divisionOf(cid, did)) && isLocked(divisionOf(cid, did)));
+          allow create, update: if isUser(uid)
+            && canPredict(divisionOf(cid, did))
+            && validPrediction(request.resource.data, divisionOf(cid, did));
+          allow delete: if isUser(uid) && canPredict(divisionOf(cid, did));
+          // Calcul des points : l'admin n'écrit que le score.
+          allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score']);
+        }
+      }
+
+      match /leaderboard/{uid} {
+        allow read: if competitionOf(cid).published == true || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    match /leaderboard/{uid} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
