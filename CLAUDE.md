@@ -12,6 +12,8 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Pronostic par division : 1er, 2e, deux 3e, quatre battus en quart ; saisie par clic dans l'arbre ; cohérence avec l'arbre imposée.
 - Barème : socle + bonus d'audace selon la tête de série (proposition, voir `DEFAULT_SCORING` dans `src/prediction.ts`).
 - Classements : par compétition et général, cumul brut, permanent ; départage : vainqueurs exacts puis ancienneté.
+- Pronostic incomplet au verrouillage : scoré sur les places remplies (décision du 23/09/2026).
+- Pronostics des autres utilisateurs : visibles seulement après le verrouillage de la division (décision du 23/09/2026).
 - Résultats : saisis par l'admin en cliquant dans l'arbre (le moteur ne lit pas les résultats).
 - Stack : TypeScript partout. Moteur PDF dans le navigateur de l'admin, React, Firebase (Auth + Firestore). Firebase remplace l'API Node.js + PostgreSQL prévue au départ (décision du 23/09/2026).
 
@@ -29,6 +31,7 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Rôle admin : custom claim `admin`, posé par `scripts/set-admin.mjs` ; les règles le liront dans `request.auth.token.admin`.
 - Clé du compte de service : `~/.config/taekwondo-score/service-account.json`, hors du dépôt ; `FIREBASE_SERVICE_ACCOUNT` (chemin ou JSON) lu dans l'environnement ou dans `.env` (ignoré par git). Ne jamais committer ni afficher la clé.
 - `firestore.rules` est la référence : tout est fermé tant que le modèle de données de la phase 1 n'est pas validé.
+- Tests des règles : émulateur Firestore, Java 21 installé par Homebrew (`openjdk@21`, hors PATH : `$(brew --prefix openjdk@21)/bin`).
 - Proposition à valider : verrouillage par les règles (`request.time` avant l'heure de début de la division), points calculés dans le navigateur de l'admin à la saisie des résultats (plan gratuit Spark), Cloud Functions plus tard si besoin (plan Blaze, activé par Mehdi).
 
 ## Commandes
@@ -37,11 +40,20 @@ https://claude.ai/code/artifact/83687ee9-7881-41bc-80cc-fd5e0101d5ed
 - Tests sur PDF réels : `TKD_PDF_FIXTURES_DIR=pdf-tests TKD_REQUIRE_PDF_FIXTURES=1 npm test`.
 - `npm run admin -- utilisateur@exemple.com [--retirer]` : accorde ou retire le rôle admin (le compte doit exister).
 - `firebase deploy --only firestore` : publie `firestore.rules` et `firestore.indexes.json`.
+- `npm run dev` : écran de contrôle des tirages sur http://localhost:5173 (app `web/`, moteur importé depuis `src/`) ; `npm run build` : version compilée dans `dist/`.
+
+## Écran de contrôle (`web/`)
+- Import d'un PDF dans le navigateur (OCR compris), PDF source et arbre reconstruit côte à côte, correction de chaque athlète et du combat de finale (`src/bracket-editing.ts`), validation explicite par division.
+- Une anomalie de structure bloque la validation ; une alerte de lecture exige la case « comparé au PDF ». Rien n'est enregistré en ligne : export JSON local (`taekwondo-score/controle@1`).
+- Bilan affiché : divisions validées « justes sans correction », mesure du critère de la phase 0.
 
 ## État au 23/09/2026
 - Fait : moteur reconstitué, tête de série (`seed`), arbre par division (`src/bracket-builder.ts`), règles de pronostic (`src/prediction.ts`), projet Firebase créé (Auth, Firestore fermé, script admin).
 - Limite : sur le livret de résultats du GP de Rome 2026, 0/7 divisions sans revue (côté droit mal décodé, colonne de combats manquée à gauche).
-- Prochaine étape : tester sur plusieurs tirages officiels publiés après la pesée, corriger la lecture, puis lancer la phase 1 (MVP web).
+- Bilan sur 15 PDF réels (`pdf-tests/`) : 127/197 divisions lues sans anomalie (sans anomalie ≠ vérifiée juste). Complets : German Open, Spanish Open, livrets WT de résultats.
+- Arab Cup 2025 et Fujairah Open 2025 : les grandes divisions sont coupées sur plusieurs pages (« Page 1 of 3 »… finale sur la dernière) ; le moteur crée une division par page, d'où l'écart avec « Contestants ».
+- PDF scannés : l'OCR (navigateur seulement) lit noms, pays et têtes de série, mais pas les numéros de combat. U21 World Championship : format non reconnu.
+- Prochaine étape : règle de lecture des divisions sur plusieurs pages (Arab Cup / Fujairah), puis modèle Firestore et règles testées dans l'émulateur, puis phase 1 (MVP web).
 
 ## Façon de travailler
 - Proposer un plan et attendre la validation de Mehdi avant tout gros chantier.

@@ -14,11 +14,16 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": [
-      "node"
-    ]
+      "node",
+      "vite/client"
+    ],
+    "jsx": "react-jsx"
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "web/src/**/*.ts",
+    "web/src/**/*.tsx",
+    "vite.config.ts"
   ],
   "exclude": [
     "node_modules"
