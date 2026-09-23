@@ -67,6 +67,7 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
           <p className="actions">
             <Link to={`/admin/competitions/${cid}/jours/${day}/import`} className={`button ${ofDay.length === 0 ? "primary" : ""}`}>
               {ofDay.length === 0 ? "Importer le tirage de ce jour" : "Importer un autre PDF de tirage"}</Link>
+            {published.length > 0 && <Link to={`/admin/competitions/${cid}/jours/${day}/resultats`} className="button">Importer le PDF des résultats</Link>}
             {firstPending && <Link to={`/admin/competitions/${cid}/divisions/${firstPending.id}/resultats`} className={`button ${started ? "primary" : ""}`}>
               Saisir les résultats du jour ({published.length - withResult.length} à faire)</Link>}
           </p>
