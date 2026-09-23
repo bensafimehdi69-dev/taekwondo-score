@@ -11,15 +11,17 @@
     "typecheck": "tsc --noEmit",
     "analyze": "node scripts/analyze.mjs",
     "prepare-assets": "node scripts/prepare-assets.mjs",
-    "brackets": "node scripts/brackets.mjs"
+    "brackets": "node scripts/brackets.mjs",
+    "admin": "node --env-file-if-exists=.env scripts/set-admin.mjs"
   },
   "dependencies": {
     "pdfjs-dist": "5.7.284",
-    "tesseract.js": "7.0.0",
-    "pdfjs-ios": "npm:pdfjs-dist@3.11.174"
+    "pdfjs-ios": "npm:pdfjs-dist@3.11.174",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "22.19.19"
+    "@types/node": "22.19.19",
+    "firebase-admin": "14.4.0",
+    "typescript": "5.9.3"
   }
 }

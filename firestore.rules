@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Tout est fermé tant que le modèle de données de la phase 1 n'est pas validé.
+// Le rôle admin se lira dans request.auth.token.admin (voir scripts/set-admin.mjs).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
