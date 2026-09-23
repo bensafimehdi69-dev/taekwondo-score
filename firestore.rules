@@ -86,8 +86,11 @@ service cloud.firestore {
       return division.status == 'open' && !isLocked(division);
     }
 
+    // `tree` (facultatif) : l'arbre tel que le joueur l'a rempli, pour le lui réafficher ; les points viennent de `picks`.
     function validPrediction(data, division) {
-      return exactKeys(data, ['picks', 'bracketVersion', 'updatedAt'])
+      return data.keys().hasAll(['picks', 'bracketVersion', 'updatedAt'])
+        && data.keys().hasOnly(['picks', 'bracketVersion', 'updatedAt', 'tree'])
+        && (!('tree' in data) || (data.tree is map && data.tree.size() <= 128))
         && data.updatedAt == request.time
         && data.bracketVersion == division.version
         && validPlaces(data.picks, division);

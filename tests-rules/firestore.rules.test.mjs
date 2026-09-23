@@ -95,6 +95,9 @@ test("pronostic : heure du serveur, version de l'arbre, pas de score ni de champ
   await assertFails(setDoc(doc(user("bob"), path), prediction({ bracketVersion: 2 })));
   await assertFails(setDoc(doc(user("bob"), path), prediction({ score: { total: 100, exactGolds: 1 } })));
   await assertFails(setDoc(doc(user("bob"), path), prediction({ comment: "sûr" })));
+  // L'arbre rempli par le joueur accompagne le pronostic ; il doit rester une simple table case → athlète.
+  await assertSucceeds(setDoc(doc(user("bob"), path), prediction({ tree: { 101: "A", 201: "A", 301: "A" } })));
+  await assertFails(setDoc(doc(user("bob"), path), prediction({ tree: "A" })));
 });
 
 test("pronostics des autres : lisibles seulement après le verrouillage, par un utilisateur connecté", async () => {
