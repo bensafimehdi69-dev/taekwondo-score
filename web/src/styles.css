@@ -732,3 +732,10 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 3px; }
 /* Colonne des divisions : le résumé et les filtres gardent leur hauteur, seule la liste défile. */
 .sidebar > * { flex-shrink: 0; }
 .sidebar > ul { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Sélecteur de langue FR / EN */
+.site-header .account { display: flex; align-items: center; gap: 10px; }
+.lang-switch.is-compact { display: inline-flex; }
+.lang-switch.is-compact button { min-height: 30px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
+.lang-switch:not(.is-compact) { display: flex; }
+.lang-switch:not(.is-compact) button { flex: 1; }

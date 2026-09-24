@@ -2,16 +2,17 @@ import type { DivisionDoc } from "../../../src/model.ts";
 import { getCompetition, listDivisions, myPredictions } from "../data.ts";
 import { formatCountdown, formatDates, formatDay, formatLocalTime } from "../format.ts";
 import { PodiumIcon } from "../components/Icons.tsx";
+import { tr } from "../i18n.tsx";
 import { Link } from "../router.tsx";
 import { useSession } from "../session.tsx";
 import { useAsync, useNow } from "../useAsync.ts";
 
 /** État affiché d'une division : « verrouillée » se déduit de l'heure, comme dans les règles Firestore. */
 export function divisionState(division: DivisionDoc, now: number): { label: string; tone: "open" | "locked" | "results" | "draft" } {
-  if (division.status === "results" || division.status === "closed") return { label: "Résultats", tone: "results" };
-  if (division.status !== "open") return { label: "Bientôt", tone: "draft" };
+  if (division.status === "results" || division.status === "closed") return { label: tr("Résultats", "Results"), tone: "results" };
+  if (division.status !== "open") return { label: tr("Bientôt", "Soon"), tone: "draft" };
   const left = division.lockAt.getTime() - now;
-  return left > 0 ? { label: `Ouverte · verrouillage ${formatCountdown(left)}`, tone: "open" } : { label: "Verrouillée", tone: "locked" };
+  return left > 0 ? { label: tr(`Ouverte · verrouillage ${formatCountdown(left)}`, `Open · locks ${formatCountdown(left)}`), tone: "open" } : { label: tr("Verrouillée", "Locked"), tone: "locked" };
 }
 
 export function CompetitionPage({ cid }: { cid: string }) {
@@ -23,9 +24,9 @@ export function CompetitionPage({ cid }: { cid: string }) {
     return { competition, divisions, mine };
   }, [cid, user?.uid]);
 
-  if (loading && !data) return <main className="page"><p className="muted">Chargement…</p></main>;
+  if (loading && !data) return <main className="page"><p className="muted">{tr("Chargement…", "Loading…")}</p></main>;
   if (error) return <main className="page"><p className="error">{error}</p></main>;
-  if (!data?.competition) return <main className="page"><h1>Compétition introuvable</h1><Link to="/">Retour</Link></main>;
+  if (!data?.competition) return <main className="page"><h1>{tr("Compétition introuvable", "Competition not found")}</h1><Link to="/">{tr("Retour", "Back")}</Link></main>;
   const { competition, divisions, mine } = data;
   const days = [...new Set(divisions.map((d) => d.day))];
 
@@ -34,7 +35,7 @@ export function CompetitionPage({ cid }: { cid: string }) {
 
   return (
     <main className="page">
-      <p className="crumbs"><Link to="/">Compétitions</Link></p>
+      <p className="crumbs"><Link to="/">{tr("Compétitions", "Competitions")}</Link></p>
       <header className="home-header">
         <p className="eyebrow">{competition.location} · {formatDates(competition.startDate, competition.endDate)}</p>
         <h1>{competition.name}</h1>
@@ -42,9 +43,9 @@ export function CompetitionPage({ cid }: { cid: string }) {
 
       {user && openNow.length > 0 && (
         <section className={`status-card ${doneNow < openNow.length ? "tone-open" : ""}`}>
-          <span className={`chip ${doneNow < openNow.length ? "chip-todo" : "chip-open"}`}>{doneNow < openNow.length ? "À faire" : "À jour"}</span>
+          <span className={`chip ${doneNow < openNow.length ? "chip-todo" : "chip-open"}`}>{doneNow < openNow.length ? tr("À faire", "To do") : tr("À jour", "Up to date")}</span>
           <span className="status-value">{doneNow} / {openNow.length}</span>
-          <span className="status-label">{doneNow < openNow.length ? "divisions ouvertes pronostiquées" : "Toutes les divisions ouvertes sont pronostiquées."}</span>
+          <span className="status-label">{doneNow < openNow.length ? tr("divisions ouvertes pronostiquées", "open divisions predicted") : tr("Toutes les divisions ouvertes sont pronostiquées.", "All open divisions are predicted.")}</span>
           <span className="progress" aria-hidden="true">
             {openNow.map((d) => <span key={d.id} className={`progress-dot ${mine.has(d.id) ? "place-quarter" : ""}`} />)}
           </span>
@@ -54,14 +55,14 @@ export function CompetitionPage({ cid }: { cid: string }) {
       <ul className="division-list">
         <li><Link to={`/competitions/${cid}/classement`} className="division-row row-with-icon">
           <span className="row-icon tone-gold"><PodiumIcon /></span>
-          <span className="division-title">Classement de la compétition</span>
+          <span className="division-title">{tr("Classement de la compétition", "Competition leaderboard")}</span>
         </Link></li>
       </ul>
 
-      {divisions.length === 0 && <p className="empty-state">Les tirages seront publiés après la pesée.</p>}
+      {divisions.length === 0 && <p className="empty-state">{tr("Les tirages seront publiés après la pesée.", "Draws will be published after the weigh-in.")}</p>}
       {days.map((day, index) => (
         <section key={day} className="group">
-          <h2><span className="eyebrow">Jour {index + 1}</span><br />{formatDay(day)}</h2>
+          <h2><span className="eyebrow">{tr(`Jour ${index + 1}`, `Day ${index + 1}`)}</span><br />{formatDay(day)}</h2>
           <ul className="division-list">
             {divisions.filter((d) => d.day === day).map((division) => {
               const state = divisionState(division, now);
@@ -70,9 +71,9 @@ export function CompetitionPage({ cid }: { cid: string }) {
               return (
                 <li key={division.id}>
                   <Link to={`/competitions/${cid}/divisions/${division.id}`} className={`division-row ${user ? "row-with-status" : ""}`}>
-                    {user && <span className={`row-status ${icon ? `is-${icon}` : ""}`} aria-label={icon === "done" ? "Pronostic fait" : icon === "todo" ? "À faire" : undefined}>{icon === "done" ? "✓" : ""}</span>}
+                    {user && <span className={`row-status ${icon ? `is-${icon}` : ""}`} aria-label={icon === "done" ? tr("Pronostic fait", "Predicted") : icon === "todo" ? tr("À faire", "To do") : undefined}>{icon === "done" ? "✓" : ""}</span>}
                     <span className="division-title">{division.category}</span>
-                    <span className="muted small">{division.bracket.entrants.length} athlètes · verrouillage {formatLocalTime(division.lockAt, competition.timezone)}</span>
+                    <span className="muted small">{tr(`${division.bracket.entrants.length} athlètes · verrouillage ${formatLocalTime(division.lockAt, competition.timezone)}`, `${division.bracket.entrants.length} athlete${division.bracket.entrants.length === 1 ? "" : "s"} · locks ${formatLocalTime(division.lockAt, competition.timezone)}`)}</span>
                     <span className="division-badges">
                       <span className={`chip chip-${state.tone}`}>{state.label}</span>
                       {prediction?.score && <span className="chip chip-done">{prediction.score.total} pts</span>}

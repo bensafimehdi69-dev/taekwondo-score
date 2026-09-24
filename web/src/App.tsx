@@ -1,6 +1,7 @@
 import { signOut } from "firebase/auth";
 import { lazy, Suspense, type ReactNode } from "react";
 import { auth, usingEmulators } from "./firebase.ts";
+import { LangSwitch, tr } from "./i18n.tsx";
 import { Link, matchPath, usePath } from "./router.tsx";
 import { useSession } from "./session.tsx";
 import { BracketIcon, PersonIcon, PodiumIcon, ShieldIcon } from "./components/Icons.tsx";
@@ -41,45 +42,46 @@ export function App() {
   const found = routes.map((route) => ({ route, params: matchPath(route.pattern, path) })).find((r) => r.params);
 
   let content: ReactNode;
-  if (!found) content = <main className="page"><h1>Page introuvable</h1><p><Link to="/">Retour à l'accueil</Link></p></main>;
-  else if (found.route.admin && session.loading) content = <main className="page"><p className="muted">Chargement…</p></main>;
+  if (!found) content = <main className="page"><h1>{tr("Page introuvable", "Page not found")}</h1><p><Link to="/">{tr("Retour à l'accueil", "Back to home")}</Link></p></main>;
+  else if (found.route.admin && session.loading) content = <main className="page"><p className="muted">{tr("Chargement…", "Loading…")}</p></main>;
   else if (found.route.admin && !session.isAdmin) {
-    content = <main className="page"><h1>Accès réservé</h1><p className="muted">Cette page est réservée aux administrateurs.</p></main>;
+    content = <main className="page"><h1>{tr("Accès réservé", "Restricted access")}</h1><p className="muted">{tr("Cette page est réservée aux administrateurs.", "This page is for administrators only.")}</p></main>;
   } else content = found.route.render(found.params!);
 
   // Pseudo obligatoire avant tout usage connecté (il apparaît dans les classements).
   if (session.user && !session.loading && !session.profile && path !== "/compte") content = <PseudoGate />;
-  if (found?.route.bare && session.isAdmin) return <Suspense fallback={<main className="page"><p className="muted">Chargement du lecteur de PDF…</p></main>}>{content}</Suspense>;
+  if (found?.route.bare && session.isAdmin) return <Suspense fallback={<main className="page"><p className="muted">{tr("Chargement du lecteur de PDF…", "Loading the PDF reader…")}</p></main>}>{content}</Suspense>;
 
   return (
     <div className="shell">
       <header className="site-header">
         <Link to="/" className="logo">Taekwondo <span>Score</span></Link>
         <nav>
-          <Link to="/" className={path === "/" || path.startsWith("/competitions") ? "is-active" : ""}>Compétitions</Link>
-          <Link to="/classement" className={path === "/classement" ? "is-active" : ""}>Classement</Link>
+          <Link to="/" className={path === "/" || path.startsWith("/competitions") ? "is-active" : ""}>{tr("Compétitions", "Competitions")}</Link>
+          <Link to="/classement" className={path === "/classement" ? "is-active" : ""}>{tr("Classement", "Leaderboard")}</Link>
           {session.isAdmin && <Link to="/admin" className={path.startsWith("/admin") ? "is-active" : ""}>Admin</Link>}
         </nav>
         <div className="account">
+          <LangSwitch compact />
           {session.user
-            ? <Link to="/compte" className="avatar" title="Mon compte">{(session.profile?.displayName ?? "?").slice(0, 1).toUpperCase()}</Link>
-            : <Link to={`/connexion?retour=${encodeURIComponent(path)}`} className="button small">Connexion</Link>}
+            ? <Link to="/compte" className="avatar" title={tr("Mon compte", "My account")}>{(session.profile?.displayName ?? "?").slice(0, 1).toUpperCase()}</Link>
+            : <Link to={`/connexion?retour=${encodeURIComponent(path)}`} className="button small">{tr("Connexion", "Sign in")}</Link>}
         </div>
       </header>
       {usingEmulators && (
         <div className="demo-banner">
-          Mode démo : émulateurs locaux, aucune donnée réelle.
-          {session.user && <button className="link" onClick={() => signOut(auth)}>Se déconnecter</button>}
+          {tr("Mode démo : émulateurs locaux, aucune donnée réelle.", "Demo mode: local emulators, no real data.")}
+          {session.user && <button className="link" onClick={() => signOut(auth)}>{tr("Se déconnecter", "Sign out")}</button>}
         </div>
       )}
-      <Suspense fallback={<main className="page"><p className="muted">Chargement du lecteur de PDF…</p></main>}>{content}</Suspense>
+      <Suspense fallback={<main className="page"><p className="muted">{tr("Chargement du lecteur de PDF…", "Loading the PDF reader…")}</p></main>}>{content}</Suspense>
       {/* Barre d'onglets flottante (téléphone) : les mêmes destinations que la navigation du haut. */}
-      <nav className="tabbar" aria-label="Navigation principale">
-        <Link to="/" className={path === "/" || path.startsWith("/competitions") ? "is-active" : ""}><BracketIcon /><span>Compétitions</span></Link>
-        <Link to="/classement" className={path === "/classement" ? "is-active" : ""}><PodiumIcon /><span>Classement</span></Link>
+      <nav className="tabbar" aria-label={tr("Navigation principale", "Main navigation")}>
+        <Link to="/" className={path === "/" || path.startsWith("/competitions") ? "is-active" : ""}><BracketIcon /><span>{tr("Compétitions", "Competitions")}</span></Link>
+        <Link to="/classement" className={path === "/classement" ? "is-active" : ""}><PodiumIcon /><span>{tr("Classement", "Leaderboard")}</span></Link>
         {session.isAdmin && <Link to="/admin" className={path.startsWith("/admin") ? "is-active" : ""}><ShieldIcon /><span>Admin</span></Link>}
         <Link to={session.user ? "/compte" : `/connexion?retour=${encodeURIComponent(path)}`}
-          className={path === "/compte" || path === "/connexion" ? "is-active" : ""}><PersonIcon /><span>{session.user ? "Compte" : "Connexion"}</span></Link>
+          className={path === "/compte" || path === "/connexion" ? "is-active" : ""}><PersonIcon /><span>{session.user ? tr("Compte", "Account") : tr("Connexion", "Sign in")}</span></Link>
       </nav>
     </div>
   );

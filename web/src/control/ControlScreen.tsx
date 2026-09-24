@@ -10,13 +10,14 @@ import { CategoryEditor } from "./CategoryEditor.tsx";
 import { entryState, exportControl, sha256, summarize, type Entry, type Session } from "./control.ts";
 import { EntrantEditor } from "./EntrantEditor.tsx";
 import { PdfPreview } from "./PdfPreview.tsx";
+import { tr } from "../i18n.tsx";
 
 type Filter = "all" | "todo" | "done";
 
 function statusOf(entry: Entry): { label: string; tone: string } {
   const { corrections } = entryState(entry);
-  if (entry.validated) return corrections ? { label: `Validée · ${corrections} corr.`, tone: "done-fixed" } : { label: "Validée", tone: "done" };
-  return entry.current.status === "ok" ? { label: "À valider", tone: "todo" } : { label: "À revoir", tone: "review" };
+  if (entry.validated) return corrections ? { label: tr(`Validée · ${corrections} corr.`, `Approved · ${corrections} corr.`), tone: "done-fixed" } : { label: tr("Validée", "Approved"), tone: "done" };
+  return entry.current.status === "ok" ? { label: tr("À valider", "To approve"), tone: "todo" } : { label: tr("À revoir", "To review"), tone: "review" };
 }
 
 /**
@@ -46,7 +47,7 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
   }, [dirty]);
 
   async function importPdf(next: File) {
-    if (dirty && !window.confirm("Le contrôle en cours sera perdu. Pensez à l'exporter d'abord. Continuer ?")) return;
+    if (dirty && !window.confirm(tr("Le contrôle en cours sera perdu. Pensez à l'exporter d'abord. Continuer ?", "The current review will be lost. Export it first. Continue?"))) return;
     setError(null);
     setSession(null);
     setFile(next);
@@ -109,15 +110,15 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void importPdf(f); }}>
       <header className="topbar">
-        {publish?.back ?? <div className="brand">Taekwondo Score <span className="muted hide-narrow">· Contrôle des tirages</span></div>}
+        {publish?.back ?? <div className="brand">Taekwondo Score <span className="muted hide-narrow">· {tr("Contrôle des tirages", "Draw review")}</span></div>}
         {session && <span className="file" title={session.sha256}>{session.fileName}</span>}
         <div className="spacer" />
         <input ref={input} type="file" accept="application/pdf" hidden
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importPdf(f); }} />
         {session && publish?.render(session)}
-        {session && <button onClick={download}>Exporter<span className="hide-narrow"> le contrôle</span></button>}
+        {session && <button onClick={download}>{tr("Exporter", "Export")}<span className="hide-narrow">{tr(" le contrôle", " review")}</span></button>}
         <button className="primary" onClick={() => input.current?.click()} disabled={!!progress}>
-          {session ? <>Importer<span className="hide-narrow"> un autre PDF</span></> : "Importer un PDF"}
+          {session ? <>{tr("Importer", "Import")}<span className="hide-narrow">{tr(" un autre PDF", " another PDF")}</span></> : tr("Importer un PDF", "Import a PDF")}
         </button>
       </header>
 
@@ -125,44 +126,45 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
         <main className="empty">
           {progress ? (
             <div className="card">
-              <p><strong>Lecture de {file?.name}</strong></p>
+              <p><strong>{tr(`Lecture de ${file?.name}`, `Reading ${file?.name}`)}</strong></p>
               <progress max={progress.total || 1} value={progress.page} />
-              <p className="muted">{progress.total ? `Page ${progress.page} sur ${progress.total}` : "Ouverture du PDF…"}</p>
+              <p className="muted">{progress.total ? tr(`Page ${progress.page} sur ${progress.total}`, `Page ${progress.page} of ${progress.total}`) : tr("Ouverture du PDF…", "Opening the PDF…")}</p>
             </div>
           ) : (
             <button className="dropzone" onClick={() => input.current?.click()}>
               <span className="app-mark" aria-hidden="true"><BracketIcon /></span>
-              <strong>Déposez un PDF de tirage ici</strong>
-              <span className="muted">ou cliquez pour le choisir. Le PDF est lu dans ce navigateur et n'est envoyé nulle part.</span>
+              <strong>{tr("Déposez un PDF de tirage ici", "Drop a draw PDF here")}</strong>
+              <span className="muted">{tr("ou cliquez pour le choisir. Le PDF est lu dans ce navigateur et n'est envoyé nulle part.", "or click to choose it. The PDF is read in this browser and sent nowhere.")}</span>
             </button>
           )}
-          {error && <p className="error">Lecture impossible : {error}</p>}
+          {error && <p className="error">{tr(`Lecture impossible : ${error}`, `Could not read the PDF: ${error}`)}</p>}
         </main>
       )}
 
       {session && entries.length === 0 && (
         <main className="empty">
           <div className="card">
-            <p><strong>Aucune division reconnue dans ce PDF.</strong></p>
-            <p className="muted">{session.pageCount} page(s) lue(s), dont {session.ocrPages} par reconnaissance visuelle (OCR).
-              Ce format n'est peut-être pas encore pris en charge par le moteur de lecture.</p>
+            <p><strong>{tr("Aucune division reconnue dans ce PDF.", "No division recognised in this PDF.")}</strong></p>
+            <p className="muted">{tr(`${session.pageCount} page(s) lue(s), dont ${session.ocrPages} par reconnaissance visuelle (OCR).`,
+              `${session.pageCount} ${session.pageCount === 1 ? "page" : "pages"} read, ${session.ocrPages} of them by optical character recognition (OCR).`)}
+              {" "}{tr("Ce format n'est peut-être pas encore pris en charge par le moteur de lecture.", "This format may not be supported by the reading engine yet.")}</p>
           </div>
         </main>
       )}
 
       {session && entries.length > 0 && (
         <div className="workspace" data-view={mobileView}>
-          <nav className="sidebar" aria-label="Divisions">
+          <nav className="sidebar" aria-label={tr("Divisions", "Divisions")}>
             <div className="summary">
-              <div className="summary-value"><strong>{summary.validated}</strong> / {summary.total} <span className="muted">validées</span></div>
-              <progress className="bar" max={summary.total || 1} value={summary.validated} aria-label="Divisions validées" />
-              <div className="muted">Justes sans correction : <strong>{summary.validatedAsRead}</strong>/{summary.validated}
-                {summary.validated > 0 && ` (${Math.round((summary.validatedAsRead / summary.validated) * 100)} %)`}</div>
-              <div className="muted">Lues sans anomalie : {summary.readOk}/{summary.total}</div>
-              {session.ocrPages > 0 && <div className="muted">{session.ocrPages} page(s) lue(s) par OCR</div>}
+              <div className="summary-value"><strong>{summary.validated}</strong> / {summary.total} <span className="muted">{tr("validées", "approved")}</span></div>
+              <progress className="bar" max={summary.total || 1} value={summary.validated} aria-label={tr("Divisions validées", "Approved divisions")} />
+              <div className="muted">{tr("Justes sans correction : ", "Correct as read: ")}<strong>{summary.validatedAsRead}</strong>/{summary.validated}
+                {summary.validated > 0 && tr(` (${Math.round((summary.validatedAsRead / summary.validated) * 100)} %)`, ` (${Math.round((summary.validatedAsRead / summary.validated) * 100)}%)`)}</div>
+              <div className="muted">{tr("Lues sans anomalie : ", "Read without issues: ")}{summary.readOk}/{summary.total}</div>
+              {session.ocrPages > 0 && <div className="muted">{tr(`${session.ocrPages} page(s) lue(s) par OCR`, `${session.ocrPages} ${session.ocrPages === 1 ? "page" : "pages"} read by OCR`)}</div>}
             </div>
             <div className="segmented full">
-              {([["all", "Toutes"], ["todo", "À traiter"], ["done", "Validées"]] as const).map(([value, label]) => (
+              {([["all", tr("Toutes", "All")], ["todo", tr("À traiter", "To do")], ["done", tr("Validées", "Approved")]] as const).map(([value, label]) => (
                 <button key={value} className={filter === value ? "is-active" : ""} onClick={() => setFilter(value)}>{label}</button>
               ))}
             </div>
@@ -192,7 +194,7 @@ export function ControlScreen({ publish }: { publish?: PublishSlot } = {}) {
             onValidate={() => validate(entry)}
             onUnvalidate={() => updateEntry(entry.original.key, (e) => ({ ...e, validated: false }))}
             onReset={() => { updateEntry(entry.original.key, (e) => ({ ...e, current: e.original, validated: false })); setSelectedAthlete(null); }} />
-            : <main className="empty"><p className="muted">Choisissez une division.</p></main>}
+            : <main className="empty"><p className="muted">{tr("Choisissez une division.", "Choose a division.")}</p></main>}
         </div>
       )}
     </div>
@@ -237,20 +239,20 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
   return (
     <main ref={panel} className={`division-panel ${selectedAthlete ? "is-editing" : ""}`}>
       <header className="division-head">
-        <button className="link back" onClick={onBack}>‹ Divisions</button>
+        <button className="link back" onClick={onBack}>‹ {tr("Divisions", "Divisions")}</button>
         <div>
-          <p className="eyebrow">Page {current.pages.join("-")} · {current.size} athlètes</p>
+          <p className="eyebrow">{tr(`Page ${current.pages.join("-")} · ${current.size} athlètes`, `Page ${current.pages.join("-")} · ${current.size} ${current.size === 1 ? "athlete" : "athletes"}`)}</p>
           <h1>{current.category}</h1>
-          <p className="muted">{current.semiFights.length} demi-finales · {current.quarterFights.length} quarts</p>
+          <p className="muted">{tr(`${current.semiFights.length} demi-finales · ${current.quarterFights.length} quarts`, `${current.semiFights.length} ${current.semiFights.length === 1 ? "semifinal" : "semifinals"} · ${current.quarterFights.length} ${current.quarterFights.length === 1 ? "quarterfinal" : "quarterfinals"}`)}</p>
           <CategoryEditor division={current} onChange={(patch) => onEdit((d) => setCategory(d, patch))} />
         </div>
         <div className="head-actions">
-          {corrections > 0 && <button onClick={onReset}>Revenir à la lecture ({corrections} corr.)</button>}
+          {corrections > 0 && <button onClick={onReset}>{tr(`Revenir à la lecture (${corrections} corr.)`, `Revert to reading (${corrections} corr.)`)}</button>}
           {entry.validated ? (
-            <button onClick={onUnvalidate}>Annuler la validation</button>
+            <button onClick={onUnvalidate}>{tr("Annuler la validation", "Cancel approval")}</button>
           ) : (
             <button className="primary" disabled={!canValidate} onClick={onValidate}
-              title={structural.length ? "Corrigez d'abord les anomalies de structure." : undefined}>Valider la division</button>
+              title={structural.length ? tr("Corrigez d'abord les anomalies de structure.", "Fix the structure issues first.") : undefined}>{tr("Valider la division", "Approve division")}</button>
           )}
         </div>
       </header>
@@ -259,17 +261,17 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
         <div className="alerts">
           {structural.length > 0 && (
             <div className="alert alert-error">
-              <strong>Structure de l'arbre à corriger</strong>
+              <strong>{tr("Structure de l'arbre à corriger", "Bracket structure to fix")}</strong>
               <ul>{structural.map((i) => <li key={i}>{i}</li>)}</ul>
             </div>
           )}
           {reading.length > 0 && (
             <div className="alert alert-warn">
-              <strong>Alertes de lecture</strong>
+              <strong>{tr("Alertes de lecture", "Reading warnings")}</strong>
               <ul>{reading.map((i) => <li key={i}>{i}</li>)}</ul>
               <label className="check">
                 <input type="checkbox" checked={entry.checked} onChange={(e) => onCheck(e.target.checked)} />
-                J'ai comparé chaque athlète (nom, pays, tête de série, place) au PDF.
+                {tr("J'ai comparé chaque athlète (nom, pays, tête de série, place) au PDF.", "I compared each athlete (name, country, seed, place) with the PDF.")}
               </label>
             </div>
           )}
@@ -277,20 +279,23 @@ function DivisionPanel({ entry, file, selectedAthlete, onSelectAthlete, onEdit, 
       )}
       {audit && audit.matchedRatio >= 0.8 && (
         <p className={`audit-line ${auditClean ? "is-clean" : ""}`}>
-          Vérification du PDF : {audit.sourceCount} nom(s) relu(s) sur la feuille{audit.declared !== undefined && `, ${audit.declared} annoncé(s)`}
-          {" "}· {current.size} dans l'arbre{added > 0 && `, dont ${added} ajouté(s) du PDF`}.{auditClean && " Tout correspond."}
+          {tr(`Vérification du PDF : ${audit.sourceCount} nom(s) relu(s) sur la feuille`, `PDF check: ${audit.sourceCount} ${audit.sourceCount === 1 ? "name" : "names"} read again on the sheet`)}
+          {audit.declared !== undefined && tr(`, ${audit.declared} annoncé(s)`, `, ${audit.declared} announced`)}
+          {" "}· {tr(`${current.size} dans l'arbre`, `${current.size} in the bracket`)}{added > 0 && tr(`, dont ${added} ajouté(s) du PDF`, `, including ${added} added from PDF`)}.{auditClean && tr(" Tout correspond.", " Everything matches.")}
         </p>
       )}
-      {entry.validated && <div className="alert alert-ok">Division validée{corrections ? ` après ${corrections} correction(s)` : " telle que lue"}.</div>}
+      {entry.validated && <div className="alert alert-ok">{corrections
+        ? tr(`Division validée après ${corrections} correction(s).`, `Division approved after ${corrections} ${corrections === 1 ? "correction" : "corrections"}.`)
+        : tr("Division validée telle que lue.", "Division approved as read.")}</div>}
 
       <div ref={tabsAnchor} aria-hidden="true" />
-      <div className="segmented full pane-tabs" role="tablist" aria-label="Affichage">
-        <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => switchPane("bracket")}>Arbre reconstruit</button>
-        <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => switchPane("pdf")}>PDF source</button>
+      <div className="segmented full pane-tabs" role="tablist" aria-label={tr("Affichage", "View")}>
+        <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => switchPane("bracket")}>{tr("Arbre reconstruit", "Rebuilt bracket")}</button>
+        <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => switchPane("pdf")}>{tr("PDF source", "Source PDF")}</button>
       </div>
       <div className={`split show-${pane}`}>
         <PdfPreview file={file} pages={current.pages} />
-        <section className="bracket-pane" aria-label="Arbre reconstruit">
+        <section className="bracket-pane" aria-label={tr("Arbre reconstruit", "Rebuilt bracket")}>
           <BracketView division={current} original={original} selected={selectedAthlete ?? undefined}
             onSelect={onSelectAthlete}
             onFinalChange={(finalFight) => onEdit((d) => setFinalFight(d, finalFight))}

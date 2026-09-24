@@ -3,6 +3,7 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { lang } from "./i18n-core.ts";
 
 export const usingEmulators = import.meta.env.VITE_FIREBASE_EMULATORS === "1";
 
@@ -19,7 +20,8 @@ const demo = { apiKey: "demo-key", authDomain: "demo-taekwondo-score.firebaseapp
 const app = initializeApp(usingEmulators ? demo : production);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-auth.languageCode = "fr";
+// Langue des e-mails et de la fenêtre Google ; remise à jour avant chaque envoi (pages/Account.tsx).
+auth.languageCode = lang();
 
 if (usingEmulators) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });

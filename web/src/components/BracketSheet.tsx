@@ -6,7 +6,7 @@ import { layoutSheet, SHEET } from "../../../src/bracket-layout.ts";
 import { flagOf } from "../../../src/flags.ts";
 import { PLACES, type Places } from "../../../src/model.ts";
 import type { Place } from "../../../src/prediction.ts";
-import { SHORT } from "./PicksSummary.tsx";
+import { placeShort, tr } from "../i18n.tsx";
 
 type Props = {
   tree: BracketTree;
@@ -17,12 +17,12 @@ type Props = {
   result?: Places;
 };
 
-const OPTION: Record<Place, string> = {
-  gold: "Vainqueur",
-  silver: "Finaliste : perd la finale",
-  bronze: "Bronze : perd en demi-finale",
-  quarter: "Battu en quart de finale",
-};
+const option = (place: Place) => ({
+  gold: tr("Vainqueur", "Winner"),
+  silver: tr("Finaliste : perd la finale", "Finalist: loses the final"),
+  bronze: tr("Bronze : perd en demi-finale", "Bronze: loses in the semifinal"),
+  quarter: tr("Battu en quart de finale", "Lost in quarterfinal"),
+})[place];
 
 /** Nom court pour une case : nom de famille (mots en capitales) et initiale du prénom, « DURAND Lucas » → « DURAND L. ». */
 export function shortName(name: string): string {
@@ -118,7 +118,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
   const name = (id: string) => entrants.get(id)?.name ?? "—";
   const flag = (id: string) => flagOf(entrants.get(id)?.country);
   const describe = (changes: PlaceChange[]) => changes
-    .map((c) => `${shortName(name(c.athleteId))} : ${SHORT[c.from]} → ${c.to ? SHORT[c.to] : "retiré"}`).join(" · ");
+    .map((c) => tr(`${shortName(name(c.athleteId))} : ${placeShort(c.from)} → ${c.to ? placeShort(c.to) : "retiré"}`, `${shortName(name(c.athleteId))}: ${placeShort(c.from)} → ${c.to ? placeShort(c.to) : "removed"}`)).join(" · ");
   const top = (y: number) => y - SHEET.boxHeight / 2;
   const open = onChange ? (athleteId: string) => setPicking(athleteId) : undefined;
 
@@ -128,16 +128,17 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
     onChange(next.places);
     setPicking(null);
     const who = shortName(name(athleteId));
-    setNotice(`${place ? `${who} : ${SHORT[place]}` : `${who} retiré`}${next.changes.length ? `. Change aussi : ${describe(next.changes)}` : ""}`);
+    setNotice(tr(`${place ? `${who} : ${placeShort(place)}` : `${who} retiré`}${next.changes.length ? `. Change aussi : ${describe(next.changes)}` : ""}`,
+      `${place ? `${who}: ${placeShort(place)}` : `${who} removed`}${next.changes.length ? `. Also changes: ${describe(next.changes)}` : ""}`));
   }
 
   return (
     <div className="bracket-sheet">
       <div className="sheet-tools">
-        <button type="button" onClick={() => setZoom(clamp(scale / 1.25))} aria-label="Dézoomer">−</button>
-        <button type="button" onClick={() => setZoom(null)}>Ajuster</button>
-        <button type="button" onClick={() => setZoom(clamp(scale * 1.25))} aria-label="Zoomer">+</button>
-        <span className="muted small">{Math.round(scale * 100)} %</span>
+        <button type="button" onClick={() => setZoom(clamp(scale / 1.25))} aria-label={tr("Dézoomer", "Zoom out")}>−</button>
+        <button type="button" onClick={() => setZoom(null)}>{tr("Ajuster", "Fit")}</button>
+        <button type="button" onClick={() => setZoom(clamp(scale * 1.25))} aria-label={tr("Zoomer", "Zoom in")}>+</button>
+        <span className="muted small">{tr(`${Math.round(scale * 100)} %`, `${Math.round(scale * 100)}%`)}</span>
       </div>
       {notice && <p className="sheet-notice small" role="status">{notice}</p>}
       <div ref={viewport} className="sheet-viewport">
@@ -159,11 +160,11 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
                 return (
                   <button key={box.athleteId} type="button" disabled={!onChange} style={style}
                     className={`sheet-athlete side-${box.side} ${place ? `has-place path-${place}` : ""}`}
-                    onClick={() => open?.(box.athleteId)} title={onChange ? "Choisir sa place" : undefined}>
+                    onClick={() => open?.(box.athleteId)} title={onChange ? tr("Choisir sa place", "Choose their place") : undefined}>
                     <span className="seed">{entrant.seed ?? ""}</span>
                     <span className="name">{entrant.name}</span>
                     <span className="country">{flagOf(entrant.country) && <span className="flag" aria-hidden="true">{flagOf(entrant.country)}</span>}{entrant.country ?? ""}</span>
-                    {place && <span className={`place place-${place} ${verdict}`}>{SHORT[place]}</span>}
+                    {place && <span className={`place place-${place} ${verdict}`}>{placeShort(place)}</span>}
                   </button>
                 );
               }
@@ -171,8 +172,8 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
               if (!occupant) {
                 return (
                   <span key={box.key} style={style} className={`sheet-slot is-empty ${box.level === 0 ? "is-final" : ""}`}
-                    title={box.level === 0 ? "Vainqueur de la finale" : `Vainqueur du combat ${box.code}`}>
-                    {box.level === 0 ? `Vainqueur · ${box.code}` : box.code}
+                    title={box.level === 0 ? tr("Vainqueur de la finale", "Winner of the final") : tr(`Vainqueur du combat ${box.code}`, `Winner of bout ${box.code}`)}>
+                    {box.level === 0 ? tr(`Vainqueur · ${box.code}`, `Winner · ${box.code}`) : box.code}
                   </span>
                 );
               }
@@ -192,9 +193,9 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
 
       {picking && (
         <div className="sheet-backdrop" onClick={() => setPicking(null)}>
-          <div className="sheet" role="dialog" aria-label={`Place de ${name(picking)}`} onClick={(e) => e.stopPropagation()}>
+          <div className="sheet" role="dialog" aria-label={tr(`Place de ${name(picking)}`, `Place of ${name(picking)}`)} onClick={(e) => e.stopPropagation()}>
             <p className="sheet-title">{flag(picking) && <span className="flag" aria-hidden="true">{flag(picking)}</span>}{name(picking)}
-              <span className="muted small">{[entrants.get(picking)?.country, entrants.get(picking)?.seed ? `tête de série ${entrants.get(picking)?.seed}` : ""].filter(Boolean).join(" · ")}</span>
+              <span className="muted small">{[entrants.get(picking)?.country, entrants.get(picking)?.seed ? tr(`tête de série ${entrants.get(picking)?.seed}`, `seed ${entrants.get(picking)?.seed}`) : ""].filter(Boolean).join(" · ")}</span>
             </p>
             <div className="place-options">
               {PLACES.filter((place) => possible.has(place)).map((place) => {
@@ -204,19 +205,19 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
                 return (
                   <button key={place} type="button" disabled={!allowed} onClick={() => choose(picking, place)}
                     className={`place-option ${current ? "is-current" : ""}`} aria-pressed={current}>
-                    <span className={`place place-${place}`}>{SHORT[place]}</span>
+                    <span className={`place place-${place}`}>{placeShort(place)}</span>
                     <span className="option-text">
-                      <span>{OPTION[place]}</span>
-                      {!allowed && <small className="muted">{place === "quarter" ? "Entre directement en demi-finale" : "Entre directement en finale"}</small>}
-                      {preview.length > 0 && <small className="option-effect">Change aussi : {describe(preview)}</small>}
+                      <span>{option(place)}</span>
+                      {!allowed && <small className="muted">{place === "quarter" ? tr("Entre directement en demi-finale", "Enters directly in the semifinal") : tr("Entre directement en finale", "Enters directly in the final")}</small>}
+                      {preview.length > 0 && <small className="option-effect">{tr("Change aussi :", "Also changes:")} {describe(preview)}</small>}
                     </span>
                   </button>
                 );
               })}
             </div>
             <div className="sheet-actions">
-              {placeOf.has(picking) && <button type="button" className="danger" onClick={() => choose(picking, null)}>Retirer sa place</button>}
-              <button type="button" onClick={() => setPicking(null)}>Annuler</button>
+              {placeOf.has(picking) && <button type="button" className="danger" onClick={() => choose(picking, null)}>{tr("Retirer sa place", "Remove their place")}</button>}
+              <button type="button" onClick={() => setPicking(null)}>{tr("Annuler", "Cancel")}</button>
             </div>
           </div>
         </div>

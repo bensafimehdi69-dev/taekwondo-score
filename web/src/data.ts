@@ -9,6 +9,7 @@ import {
 } from "../../src/model.ts";
 import { rankEntries, scoreDivision, sumScores, type LeaderboardEntry } from "../../src/scoring.ts";
 import { db } from "./firebase.ts";
+import { tr } from "./i18n.tsx";
 
 export type WithId<T> = T & { id: string };
 
@@ -177,7 +178,7 @@ export async function deletePrediction(cid: string, did: string, uid: string) {
  */
 export async function saveResultAndScore(cid: string, division: WithId<DivisionDoc>, result: Places) {
   const outcome = resultFromPlaces(result);
-  if (!outcome) throw new Error("Le vainqueur et le finaliste sont obligatoires.");
+  if (!outcome) throw new Error(tr("Le vainqueur et le finaliste sont obligatoires.", "The winner and the finalist are required."));
   await updateDoc(doc(db, "competitions", cid, "divisions", division.id), { result, status: "results" satisfies DivisionStatus });
 
   const predictions = await getDocs(collection(db, "competitions", cid, "divisions", division.id, "predictions"));

@@ -1,5 +1,6 @@
 import type { BracketDivision } from "../../../src/bracket-builder.ts";
 import type { EntrantPatch } from "../../../src/bracket-editing.ts";
+import { tr } from "../i18n.tsx";
 
 type Props = {
   division: BracketDivision;
@@ -17,36 +18,36 @@ export function EntrantEditor({ division, original, athleteId, onChange, onMove,
   if (!entrant) return null;
   const read = original.entrants.find((e) => e.athleteId === athleteId);
   const hint = (value: unknown, before: unknown) =>
-    read && (value ?? "") !== (before ?? "") ? <small className="muted">Lu : {String(before ?? "vide")}</small> : null;
+    read && (value ?? "") !== (before ?? "") ? <small className="muted">{tr("Lu : ", "Read: ")}{before == null ? tr("vide", "empty") : String(before)}</small> : null;
 
   return (
-    <aside className="editor" aria-label="Correction de l'athlète">
+    <aside className="editor" aria-label={tr("Correction de l'athlète", "Athlete correction")}>
       <header>
-        <strong>{entrant.name || (read ? `Athlète n° ${entrant.position}` : "Athlète ajouté")}</strong>
-        <button className="link" onClick={onClose}>Fermer</button>
+        <strong>{entrant.name || (read ? tr(`Athlète n° ${entrant.position}`, `Athlete no. ${entrant.position}`) : tr("Athlète ajouté", "Added athlete"))}</strong>
+        <button className="link" onClick={onClose}>{tr("Fermer", "Close")}</button>
       </header>
-      <label>Nom
+      <label>{tr("Nom", "Name")}
         <input value={entrant.name} onChange={(e) => onChange({ name: e.target.value })} />
         {hint(entrant.name, read?.name)}
       </label>
       <div className="row">
-        <label>Pays
+        <label>{tr("Pays", "Country")}
           <input value={entrant.country ?? ""} maxLength={3} onChange={(e) => onChange({ country: e.target.value })} />
           {hint(entrant.country, read?.country)}
         </label>
-        <label>Tête de série
+        <label>{tr("Tête de série", "Seed")}
           <input type="number" min={1} value={entrant.seed ?? ""}
             onChange={(e) => onChange({ seed: e.target.value ? Number(e.target.value) : undefined })} />
           {hint(entrant.seed, read?.seed)}
         </label>
       </div>
       <div className="row">
-        <label>Demi-finale (combat)
+        <label>{tr("Demi-finale (combat)", "Semifinal (bout)")}
           <input list="semi-fights" value={entrant.half ?? ""} onChange={(e) => onChange({ half: e.target.value })} />
           {hint(entrant.half, read?.half)}
         </label>
-        <label>Quart (combat)
-          <input list="quarter-fights" value={entrant.quarter ?? ""} placeholder="vide = exempt"
+        <label>{tr("Quart (combat)", "Quarterfinal (bout)")}
+          <input list="quarter-fights" value={entrant.quarter ?? ""} placeholder={tr("vide = exempt", "empty = bye")}
             onChange={(e) => onChange({ quarter: e.target.value })} />
           {hint(entrant.quarter, read?.quarter)}
         </label>
@@ -54,9 +55,9 @@ export function EntrantEditor({ division, original, athleteId, onChange, onMove,
       <datalist id="semi-fights">{division.semiFights.map((f) => <option key={f} value={f} />)}</datalist>
       <datalist id="quarter-fights">{division.quarterFights.map((f) => <option key={f} value={f} />)}</datalist>
       <div className="editor-actions">
-        <button onClick={() => onMove(-1)} disabled={entrant.position === 1}>↑ Monter</button>
-        <button onClick={() => onMove(1)} disabled={entrant.position === division.entrants.length}>↓ Descendre</button>
-        <button className="danger" onClick={onRemove}>Retirer de l'arbre</button>
+        <button onClick={() => onMove(-1)} disabled={entrant.position === 1}>↑ {tr("Monter", "Move up")}</button>
+        <button onClick={() => onMove(1)} disabled={entrant.position === division.entrants.length}>↓ {tr("Descendre", "Move down")}</button>
+        <button className="danger" onClick={onRemove}>{tr("Retirer de l'arbre", "Remove from bracket")}</button>
       </div>
     </aside>
   );
