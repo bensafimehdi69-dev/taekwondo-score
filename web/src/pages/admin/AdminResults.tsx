@@ -6,6 +6,7 @@ import { BracketSheet } from "../../components/BracketSheet.tsx";
 import { PicksSummary } from "../../components/PicksSummary.tsx";
 import { getCompetition, getDivision, listDivisions, saveResultAndScore } from "../../data.ts";
 import { errorMessage } from "../../format.ts";
+import { tr, translateIssue } from "../../i18n.tsx";
 import { clearImportedResult, loadImportedResult } from "../../importedResults.ts";
 import { Link } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
@@ -24,8 +25,8 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
-  if (loading && !data) return <main className="page"><p className="muted">Chargement…</p></main>;
-  if (error || !data?.division || !bracket || !tree) return <main className="page"><p className="error">{error ?? "Division introuvable."}</p></main>;
+  if (loading && !data) return <main className="page"><p className="muted">{tr("Chargement…", "Loading…")}</p></main>;
+  if (error || !data?.division || !bracket || !tree) return <main className="page"><p className="error">{error ?? tr("Division introuvable.", "Division not found.")}</p></main>;
   const { competition, division } = data;
   const places = draft ?? division.result ?? emptyPlaces();
   const complete = validatePrediction(bracket, picksFromPlaces(places));
@@ -39,14 +40,15 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
 
   async function save() {
     if (!ready) return;
-    if (missing > 0 && !window.confirm(`Résultat incomplet : ${missing} place(s) manquante(s) (forfait, abandon ?). Enregistrer quand même ?`)) return;
+    if (missing > 0 && !window.confirm(tr(`Résultat incomplet : ${missing} place(s) manquante(s) (forfait, abandon ?). Enregistrer quand même ?`, `Incomplete result: ${missing} missing place${missing === 1 ? "" : "s"} (walkover, withdrawal?). Save anyway?`))) return;
     setBusy(true);
     setMessage(null);
     try {
       const summary = await saveResultAndScore(cid, division, places);
       clearImportedResult(cid, did);
       setDraft(null);
-      setMessage({ tone: "ok", text: `Résultat enregistré. ${summary.predictions} pronostic(s) scoré(s)${summary.invalid ? `, dont ${summary.invalid} incohérent(s) à 0 point` : ""}. Classements mis à jour.` });
+      setMessage({ tone: "ok", text: tr(`Résultat enregistré. ${summary.predictions} pronostic(s) scoré(s)${summary.invalid ? `, dont ${summary.invalid} incohérent(s) à 0 point` : ""}. Classements mis à jour.`,
+        `Result saved. ${summary.predictions} prediction${summary.predictions === 1 ? "" : "s"} scored${summary.invalid ? `, including ${summary.invalid} inconsistent one${summary.invalid === 1 ? "" : "s"} at 0 points` : ""}. Leaderboards updated.`) });
       reload();
     } catch (cause) {
       setMessage({ tone: "error", text: errorMessage(cause) });
@@ -57,33 +59,33 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
 
   return (
     <main className="page has-savebar">
-      <p className="crumbs"><Link to={`/admin/competitions/${cid}`}>{competition?.name ?? "Compétition"}</Link></p>
-      <h1>Résultats · {division.category}</h1>
-      <p className="muted small">Touche chaque athlète classé et donne-lui sa place réelle : son chemin se dessine dans l'arbre.
-        {division.result && " Un résultat est déjà enregistré : le modifier recalcule tous les points."}</p>
+      <p className="crumbs"><Link to={`/admin/competitions/${cid}`}>{competition?.name ?? tr("Compétition", "Competition")}</Link></p>
+      <h1>{tr("Résultats", "Results")} · {division.category}</h1>
+      <p className="muted small">{tr("Touche chaque athlète classé et donne-lui sa place réelle : son chemin se dessine dans l'arbre.", "Tap each placed athlete and give them their actual place: their path is drawn in the bracket.")}
+        {division.result && tr(" Un résultat est déjà enregistré : le modifier recalcule tous les points.", " A result is already saved: editing it recalculates all points.")}</p>
       {imported && !message && (
-        <p className="notice">Prérempli depuis <strong>{imported.fileName}</strong> : compare avec le PDF, corrige si besoin en touchant les athlètes, puis enregistre.
-          {(imported.fromWinners?.length ?? 0) > 0 && ` ${imported.fromWinners!.length} place(s) lue(s) grâce aux vainqueurs des combats.`}
-          {imported.deduced.length > 0 && ` ${imported.deduced.length} battu(s) en quart déduit(s) de l'arbre.`}
-          {imported.issues.length > 0 && ` Alertes : ${imported.issues.join(" ")}`}</p>
+        <p className="notice">{tr("Prérempli depuis", "Prefilled from")} <strong>{imported.fileName}</strong>{tr(" : compare avec le PDF, corrige si besoin en touchant les athlètes, puis enregistre.", ": compare with the PDF, correct if needed by tapping the athletes, then save.")}
+          {(imported.fromWinners?.length ?? 0) > 0 && tr(` ${imported.fromWinners!.length} place(s) lue(s) grâce aux vainqueurs des combats.`, ` ${imported.fromWinners!.length} place${imported.fromWinners!.length === 1 ? "" : "s"} read from the bout winners.`)}
+          {imported.deduced.length > 0 && tr(` ${imported.deduced.length} battu(s) en quart déduit(s) de l'arbre.`, ` ${imported.deduced.length} quarterfinal loser${imported.deduced.length === 1 ? "" : "s"} deduced from the bracket.`)}
+          {imported.issues.length > 0 && ` ${tr("Alertes :", "Warnings:")} ${imported.issues.join(" ")}`}</p>
       )}
       <BracketSheet tree={tree} places={places} onChange={(next) => { setDraft(next); setMessage(null); }} />
       <section>
-        <h2>Classement saisi</h2>
-        <PicksSummary bracket={bracket} places={places} limits={division.expected} emptyLabel="À saisir" />
-        {!coherent.valid && <ul className="issues">{coherent.issues.map((i) => <li key={i}>{i}</li>)}</ul>}
-        {coherent.valid && !complete.valid && <p className="muted small">{missing} place(s) encore vide(s).</p>}
+        <h2>{tr("Classement saisi", "Entered ranking")}</h2>
+        <PicksSummary bracket={bracket} places={places} limits={division.expected} emptyLabel={tr("À saisir", "To enter")} />
+        {!coherent.valid && <ul className="issues">{coherent.issues.map((i) => <li key={i}>{translateIssue(i)}</li>)}</ul>}
+        {coherent.valid && !complete.valid && <p className="muted small">{tr(`${missing} place(s) encore vide(s).`, `${missing} place${missing === 1 ? "" : "s"} still empty.`)}</p>}
       </section>
       {message && <p className={message.tone} role="status">{message.text}</p>}
       <nav className="division-nav">
-        <Link to={`/admin/competitions/${cid}`} className="button">← Journées de la compétition</Link>
+        <Link to={`/admin/competitions/${cid}`} className="button">← {tr("Journées de la compétition", "Competition days")}</Link>
         {nextPending && <Link to={`/admin/competitions/${cid}/divisions/${nextPending.id}/resultats`} className={`button ${message?.tone === "ok" ? "primary" : ""}`}>
-          Résultats suivants : {nextPending.category} →</Link>}
-        {!nextPending && message?.tone === "ok" && <span className="ok small">Tous les résultats sont saisis.</span>}
+          {tr("Résultats suivants :", "Next results:")} {nextPending.category} →</Link>}
+        {!nextPending && message?.tone === "ok" && <span className="ok small">{tr("Tous les résultats sont saisis.", "All results are entered.")}</span>}
       </nav>
       <div className="savebar">
-        <span className="muted small">{ready ? "Prêt à enregistrer." : "Vainqueur et finaliste obligatoires, arbre cohérent."}</span>
-        <button className="primary" disabled={busy || !ready} onClick={save}>{busy ? "Calcul…" : "Enregistrer et calculer les points"}</button>
+        <span className="muted small">{ready ? tr("Prêt à enregistrer.", "Ready to save.") : tr("Vainqueur et finaliste obligatoires, arbre cohérent.", "Winner and finalist required, consistent bracket.")}</span>
+        <button className="primary" disabled={busy || !ready} onClick={save}>{busy ? tr("Calcul…", "Calculating…") : tr("Enregistrer et calculer les points", "Save and calculate points")}</button>
       </div>
     </main>
   );

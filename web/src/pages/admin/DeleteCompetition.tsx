@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CompetitionDoc } from "../../../../src/model.ts";
 import { competitionFootprint, deleteCompetition, type WithId } from "../../data.ts";
 import { adminError } from "../../format.ts";
+import { tr } from "../../i18n.tsx";
 
 /**
  * Suppression d'une compétition : irréversible, elle efface divisions, pronostics et classement de la compétition.
@@ -41,28 +42,29 @@ export function DeleteCompetitionButton({ competition, onDeleted, small = false 
 
   return (
     <>
-      <button type="button" className={`danger ${small ? "small" : ""}`} onClick={start}>Supprimer</button>
+      <button type="button" className={`danger ${small ? "small" : ""}`} onClick={start}>{tr("Supprimer", "Delete")}</button>
       {open && (
         <div className="sheet-backdrop" onClick={() => !busy && setOpen(false)}>
-          <div className="sheet" role="dialog" aria-label={`Supprimer ${competition.name}`} onClick={(e) => e.stopPropagation()}>
-            <p className="sheet-title">Supprimer « {competition.name} » ?</p>
+          <div className="sheet" role="dialog" aria-label={tr(`Supprimer ${competition.name}`, `Delete ${competition.name}`)} onClick={(e) => e.stopPropagation()}>
+            <p className="sheet-title">{tr(`Supprimer « ${competition.name} » ?`, `Delete “${competition.name}”?`)}</p>
             <p className="muted">
               {footprint
-                ? `${footprint.divisions} division(s) et ${footprint.predictions} pronostic(s) seront effacés, ainsi que le classement de la compétition. Le classement général sera recalculé sans elle.`
-                : "Calcul de ce qui sera supprimé…"}
+                ? tr(`${footprint.divisions} division(s) et ${footprint.predictions} pronostic(s) seront effacés, ainsi que le classement de la compétition. Le classement général sera recalculé sans elle.`,
+                  `${footprint.divisions} division${footprint.divisions === 1 ? "" : "s"} and ${footprint.predictions} prediction${footprint.predictions === 1 ? "" : "s"} will be erased, along with the competition leaderboard. The overall leaderboard will be recalculated without it.`)
+                : tr("Calcul de ce qui sera supprimé…", "Working out what will be deleted…")}
             </p>
-            <p className="error">Cette action est définitive : rien ne pourra être récupéré.</p>
+            <p className="error">{tr("Cette action est définitive : rien ne pourra être récupéré.", "This cannot be undone: nothing can be recovered.")}</p>
             <div className="form">
-              <label>Pour confirmer, tape le nom de la compétition
+              <label>{tr("Pour confirmer, tape le nom de la compétition", "To confirm, type the competition name")}
                 <input value={typed} placeholder={competition.name} autoComplete="off" onChange={(e) => setTyped(e.target.value)} />
               </label>
             </div>
             {error && <p className="error" role="status">{error}</p>}
             <div className="sheet-actions">
               <button type="button" className="danger-solid" disabled={!confirmed || busy || !footprint} onClick={remove}>
-                {busy ? "Suppression…" : "Supprimer définitivement"}
+                {busy ? tr("Suppression…", "Deleting…") : tr("Supprimer définitivement", "Delete permanently")}
               </button>
-              <button type="button" onClick={() => setOpen(false)} disabled={busy}>Annuler</button>
+              <button type="button" onClick={() => setOpen(false)} disabled={busy}>{tr("Annuler", "Cancel")}</button>
             </div>
           </div>
         </div>
