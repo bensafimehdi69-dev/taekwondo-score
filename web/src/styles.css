@@ -739,3 +739,6 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 3px; }
 .lang-switch.is-compact button { min-height: 30px; padding: 3px 9px; font-size: 12px; font-weight: 700; }
 .lang-switch:not(.is-compact) { display: flex; }
 .lang-switch:not(.is-compact) button { flex: 1; }
+
+/* Message de réussite (ex. divisions publiées) */
+.notice.success { background: var(--ok-bg); color: var(--ok); font-weight: 600; }

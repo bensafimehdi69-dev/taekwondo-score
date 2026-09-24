@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { divisionDoc, zonedTimeToUtc, type DivisionStatus } from "../../../../src/model.ts";
 import { ControlScreen } from "../../control/ControlScreen.tsx";
 import type { Session } from "../../control/control.ts";
 import { getCompetition, publishDivisions, type WithId } from "../../data.ts";
 import { adminError, formatDay } from "../../format.ts";
 import { tr } from "../../i18n.tsx";
-import { Link } from "../../router.tsx";
+import { setFlash } from "../../flash.ts";
+import { Link, navigate } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
 import type { CompetitionDoc } from "../../../../src/model.ts";
 
@@ -28,7 +30,6 @@ function PublishButton({ cid, competition, session, initialDay }: { cid: string;
   const [status, setStatus] = useState<DivisionStatus>("open");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
-  const [done, setDone] = useState(false);
   let lockAt: Date | null = null;
   try { lockAt = zonedTimeToUtc(day, time, competition.timezone); } catch { lockAt = null; }
   const lockInPast = !!lockAt && lockAt.getTime() <= Date.now();
@@ -51,8 +52,9 @@ function PublishButton({ cid, competition, session, initialDay }: { cid: string;
         count("unchanged") && tr(`${count("unchanged")} déjà publiée(s) à l'identique : jour, heure et statut mis à jour, pronostics conservés`,
           `${count("unchanged")} already published unchanged: day, time and status updated, predictions kept`),
       ].filter(Boolean);
-      setMessage({ tone: "ok", text: tr(`Publication réussie. ${parts.join(" ; ")}.`, `Published. ${parts.join("; ")}.`) });
-      setDone(true);
+      // Retour à la compétition, où le message de publication s'affiche.
+      setFlash(tr(`Publication réussie. ${parts.join(" ; ")}.`, `Published. ${parts.join("; ")}.`));
+      navigate(`/admin/competitions/${cid}`);
     } catch (cause) {
       setMessage({ tone: "error", text: adminError(cause) });
     } finally {
@@ -62,11 +64,12 @@ function PublishButton({ cid, competition, session, initialDay }: { cid: string;
 
   return (
     <>
-      <button className="primary" disabled={!validated.length} onClick={() => { setOpen(true); setMessage(null); setDone(false); }}
+      <button className="primary" disabled={!validated.length} onClick={() => { setOpen(true); setMessage(null); }}
         title={validated.length ? undefined : tr("Valide d'abord au moins une division.", "Validate at least one division first.")}>
         {tr("Publier", "Publish")}<span className="hide-narrow"> ({validated.length})</span>
       </button>
-      {open && (
+      {/* Panneau rendu au niveau de la page : l'en-tête en verre (flou) piégerait un élément fixe dans sa propre zone. */}
+      {open && createPortal(
         <div className="sheet-backdrop" onClick={() => !busy && setOpen(false)}>
           <div className="sheet" role="dialog" aria-label={tr("Publier les divisions validées", "Publish the validated divisions")} onClick={(e) => e.stopPropagation()}>
             <p className="sheet-title">{tr(`Publier ${validated.length} division(s) validée(s)`, `Publish ${validated.length} validated division${validated.length === 1 ? "" : "s"}`)}</p>
@@ -86,15 +89,12 @@ function PublishButton({ cid, competition, session, initialDay }: { cid: string;
               {message && <p className={message.tone} role="status">{message.text}</p>}
             </div>
             <div className="sheet-actions">
-              {done ? (
-                <Link to={`/admin/competitions/${cid}`} className="button primary">{tr("Voir la compétition", "View competition")}</Link>
-              ) : (
-                <button className="primary" disabled={busy || !lockAt} onClick={publish}>{busy ? tr("Publication…", "Publishing…") : tr("Publier", "Publish")}</button>
-              )}
+              <button className="primary" disabled={busy || !lockAt} onClick={publish}>{busy ? tr("Publication…", "Publishing…") : tr("Publier", "Publish")}</button>
               <button onClick={() => setOpen(false)} disabled={busy}>{tr("Fermer", "Close")}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
