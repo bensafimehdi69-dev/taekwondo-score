@@ -1,6 +1,7 @@
 // Feuille de tirage interactive, de la même forme que le PDF officiel : on touche un athlète, on lui donne sa place
 // (1er, 2e, 3e, battu en quart) et son chemin se dessine dans l'arbre. Zoom par boutons ou pincement.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { allowedPlaces, setPlace, stateFromPlaces, type BracketTree, type PlaceChange } from "../../../src/bracket-tree.ts";
 import { layoutSheet, SHEET } from "../../../src/bracket-layout.ts";
 import { flagOf } from "../../../src/flags.ts";
@@ -191,7 +192,7 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
         </div>
       </div>
 
-      {picking && (
+      {picking && createPortal(
         <div className="sheet-backdrop" onClick={() => setPicking(null)}>
           <div className="sheet" role="dialog" aria-label={tr(`Place de ${name(picking)}`, `Place of ${name(picking)}`)} onClick={(e) => e.stopPropagation()}>
             <p className="sheet-title">{flag(picking) && <span className="flag" aria-hidden="true">{flag(picking)}</span>}{name(picking)}
@@ -220,7 +221,8 @@ export function BracketSheet({ tree, places, onChange, result }: Props) {
               <button type="button" onClick={() => setPicking(null)}>{tr("Annuler", "Cancel")}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

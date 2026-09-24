@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { CompetitionDoc } from "../../../../src/model.ts";
 import { competitionFootprint, deleteCompetition, type WithId } from "../../data.ts";
 import { adminError } from "../../format.ts";
@@ -43,7 +44,7 @@ export function DeleteCompetitionButton({ competition, onDeleted, small = false 
   return (
     <>
       <button type="button" className={`danger ${small ? "small" : ""}`} onClick={start}>{tr("Supprimer", "Delete")}</button>
-      {open && (
+      {open && createPortal(
         <div className="sheet-backdrop" onClick={() => !busy && setOpen(false)}>
           <div className="sheet" role="dialog" aria-label={tr(`Supprimer ${competition.name}`, `Delete ${competition.name}`)} onClick={(e) => e.stopPropagation()}>
             <p className="sheet-title">{tr(`Supprimer « ${competition.name} » ?`, `Delete “${competition.name}”?`)}</p>
@@ -67,7 +68,8 @@ export function DeleteCompetitionButton({ competition, onDeleted, small = false 
               <button type="button" onClick={() => setOpen(false)} disabled={busy}>{tr("Annuler", "Cancel")}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

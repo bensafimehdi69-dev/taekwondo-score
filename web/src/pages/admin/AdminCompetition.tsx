@@ -4,6 +4,7 @@ import { deleteDivision, getCompetition, listDivisions, recomputeLeaderboards, s
 import { adminError, formatDay, localDayAndTime } from "../../format.ts";
 import { tr } from "../../i18n.tsx";
 import { Link, navigate } from "../../router.tsx";
+import { takeFlash } from "../../flash.ts";
 import { useAsync } from "../../useAsync.ts";
 import { CompetitionForm } from "./CompetitionForm.tsx";
 import { DeleteCompetitionButton } from "./DeleteCompetition.tsx";
@@ -29,7 +30,11 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
   const { data, error, loading, reload } = useAsync(async () => ({
     competition: await getCompetition(cid), divisions: await listDivisions(cid, true),
   }), [cid]);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Message laissé par la page précédente (publication d'un tirage), affiché une fois.
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(() => {
+    const flash = takeFlash();
+    return flash ? { tone: "ok", text: flash } : null;
+  });
 
   if (loading && !data) return <main className="page"><p className="muted">{tr("Chargement…", "Loading…")}</p></main>;
   if (error || !data?.competition) return <main className="page"><p className="error">{error ?? tr("Compétition introuvable.", "Competition not found.")}</p></main>;
@@ -54,7 +59,7 @@ export function AdminCompetitionPage({ cid }: { cid: string }) {
         <Link to={`/competitions/${cid}`} className="button">{tr("Voir comme un joueur", "View as player")}</Link>
         <button onClick={() => act(() => recomputeLeaderboards(cid), tr("Classements recalculés.", "Leaderboards recalculated."))}>{tr("Recalculer les classements", "Recalculate leaderboards")}</button>
       </p>
-      {message && <p className={message.tone} role="status">{message.text}</p>}
+      {message && <p className={message.tone === "ok" ? "notice success" : "error"} role="status">{message.text}</p>}
 
       <h2>{tr("Journées", "Days")}</h2>
       <p className="muted small">{tr("Pour chaque journée : importe le tirage publié après la pesée, puis, une fois les combats terminés, saisis les résultats. Pour ajouter une journée, change les dates dans « Modifier la compétition ».",
