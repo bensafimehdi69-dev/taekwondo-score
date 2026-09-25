@@ -10,9 +10,20 @@ import type { BracketDivision } from "./bracket-builder.ts";
 import { buildTree, chainOf, placesFromState, setPlace, PLAYABLE_LEVEL, type BracketTree, type TreeFight, type TreeNode, type TreeState } from "./bracket-tree.ts";
 import type { Places } from "./model.ts";
 import { expectedPicks, type Place } from "./prediction.ts";
-import { sameAthlete } from "./source-audit.ts";
+import { sameAthlete as sameAthleteStrict } from "./source-audit.ts";
 import { extractMarkers } from "./team-path-parser.ts";
 import type { ParsedPage, VisualTextItem } from "./types.ts";
+
+/**
+ * La police des feuilles WT (Woori) rend souvent « l » par « I » dans les prénoms en minuscules : « cIara », « EIIa ».
+ * Le tirage publié peut avoir été lu autrement (« clara », « Ella ») : les noms sont comparés tels quels, puis avec ce « I »
+ * remplacé par « l » dans les mots en casse mixte (les noms de famille en capitales ne changent pas). La table de glyphes
+ * n'est pas modifiée.
+ */
+export const fixWtLetterL = (name: string) => name.split(/(\s+)/)
+  .map((word) => (/[a-z]/.test(word) ? word.replace(/(?!^)I/g, "l") : word)).join("");
+const sameAthlete = (a: { name: string; country?: string }, b: { name: string; country?: string }) =>
+  sameAthleteStrict(a, b) || sameAthleteStrict({ ...a, name: fixWtLetterL(a.name) }, { ...b, name: fixWtLetterL(b.name) });
 
 export type RankingRow = { rank: number; name: string; country?: string };
 export type Ranking = { pages: number[]; rows: RankingRow[] };
