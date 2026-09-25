@@ -462,7 +462,7 @@ function needsInlinePdfWorker() {
     || /FBAN|FBAV|Instagram|WhatsApp/i.test(userAgent);
 }
 
-function installPdfCompatibility() {
+export function installPdfCompatibility() {
   const promiseConstructor = Promise as PromiseConstructor & {
     withResolvers?: <T>() => {
       promise: Promise<T>;
@@ -480,6 +480,27 @@ function installPdfCompatibility() {
       });
       return { promise, resolve, reject };
     };
+  }
+
+  // Safari (iPhone compris) ne sait pas parcourir un ReadableStream avec « for await » : PDF.js 5 s'en sert pour
+  // extraire le texte d'une page (getTextContent). Complément conforme à la norme, installé seulement s'il manque.
+  const streamPrototype = typeof ReadableStream === "undefined" ? undefined
+    : ReadableStream.prototype as unknown as { [Symbol.asyncIterator]?: unknown; values?: unknown; getReader: () => ReadableStreamDefaultReader<unknown> };
+  if (streamPrototype && typeof streamPrototype[Symbol.asyncIterator] !== "function") {
+    const values = async function* (this: ReadableStream<unknown>) {
+      const reader = this.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          yield value;
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    };
+    streamPrototype[Symbol.asyncIterator] = values;
+    if (typeof streamPrototype.values !== "function") streamPrototype.values = values;
   }
 
   const urlConstructor = URL as typeof URL & { parse?: (url: string, base?: string | URL) => URL | null };
@@ -572,12 +593,12 @@ export async function readPdfFile(
   onProgress?: (page: number, total: number) => void,
 ): Promise<ParsedPage[]> {
   const data = await readFileBytes(file);
-  if (needsIosPdfEngine()) {
-    try { return await readPdfBytes(data, onProgress, true); }
-    catch (iosError) {
-      console.warn("iPhone-compatible PDF reader failed; retrying with the modern reader", iosError);
-      return readPdfBytes(data, onProgress, false);
-    }
+  // Lecteur récent (build « legacy » de PDF.js 5, avec les compléments pour les anciens Safari) d'abord, partout :
+  // la reconnaissance de la police WT (WT_GLYPH_MAP) est calibrée sur ses contours. L'ancien lecteur pour iPhone
+  // découpe les contours autrement : les lettres n'y sont pas reconnues et la page part en OCR (25/09/2026, GP de Rome :
+  // 8 vainqueurs de combat lus au lieu de 86). Il reste le secours si le lecteur récent échoue, ou forcé par ?pdfEngine=ios.
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pdfEngine") === "ios") {
+    return readPdfBytes(data, onProgress, true);
   }
   try { return await readPdfBytes(data, onProgress, false); }
   catch (modernError) {
