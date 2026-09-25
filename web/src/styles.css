@@ -742,3 +742,8 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 3px; }
 
 /* Message de réussite (ex. divisions publiées) */
 .notice.success { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+
+/* Import des résultats : raisons, page du PDF intégrée */
+.reasons { margin: 0; padding-left: 18px; }
+.pdf-inline { height: 70dvh; display: flex; flex-direction: column; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); background: var(--surface); }
+.pdf-inline .pdf-scroll { flex: 1; }

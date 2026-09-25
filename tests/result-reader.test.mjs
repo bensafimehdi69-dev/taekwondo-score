@@ -87,6 +87,42 @@ test("résultat par les combats seuls : podium et battus en quart, sans tableau 
   assert.deepEqual([wrong.places.gold, wrong.places.silver], [[], []]);
 });
 
+test("police WT : titre « CIassification » (l lu I), nom du classement coupé sur deux lignes", () => {
+  const rows = pageRankings(page([
+    item("CIassification", 390, 420, 60),
+    item("1 MILAN CANOVAS Juan antonio (ESP)", 343, 433), item("2 RODRIGUES FERNANDES Henrique", 343, 448), item("marques (BRA)", 352, 454, 40),
+    item("3 TAKOV Stefan (SRB)", 343, 463), item("3 NICKOLAS CJ (USA)", 343, 478),
+  ]));
+  assert.deepEqual(rows[0].map((r) => [r.rank, r.name, r.country]), [
+    [1, "MILAN CANOVAS Juan antonio", "ESP"], [2, "RODRIGUES FERNANDES Henrique marques", "BRA"], [3, "TAKOV Stefan", "SRB"], [3, "NICKOLAS CJ", "USA"],
+  ]);
+});
+
+test("vainqueur réimprimé coupé sur deux lignes : les deux lignes alignées sont réunies", () => {
+  const marks = readWinnerMarks([page([
+    item("UZUNCAVDAR", 563, 156, 36), item("S.I. (TUR)", 562, 162, 24), item("203", 600, 160, 13),
+    item("DEHHAOUI A.", 334, 397, 40), item("(MAR)", 334, 403, 20),
+    item("(19) UZUNCAVDAR Sila irmak TUR", 652, 150, 89),
+  ])]);
+  assert.deepEqual(marks.map((m) => [m.name, m.country, m.fight ?? null]), [["UZUNCAVDAR S.I.", "TUR", "203"], ["DEHHAOUI A.", "MAR", null]]);
+});
+
+test("vérification automatique : classement et combats concordent, quarts complets ; sinon la raison est donnée", () => {
+  const mark = (id, fight) => ({ page: 1, name: `${id}name A.`, country: "XXX", fight });
+  const marks = [mark("A", "101"), mark("C", "102"), mark("F", "103"), mark("H", "104"), mark("A", "201"), mark("H", "202"), mark("A", "301")];
+  const ranking = { pages: [1], rows: [row(1, "A"), row(2, "H"), row(3, "C"), row(3, "F")] };
+  const both = divisionResult(named, ranking, marks);
+  assert.deepEqual([both.verified, both.reasons], [true, []]);
+  // Combats seuls : pas de seconde lecture.
+  assert.deepEqual(divisionResult(named, null, marks).reasons, ["no-ranking"]);
+  // Classement seul (tableau de 8 : quarts déduits) : podium non confirmé par les combats.
+  assert.deepEqual(divisionResult(named, ranking, []).reasons, ["podium-not-confirmed"]);
+  // Les combats donnent un autre finaliste que le classement : non vérifié.
+  const other = divisionResult(named, { pages: [1], rows: [row(1, "A"), row(2, "F"), row(3, "C"), row(3, "H")] }, marks);
+  assert.equal(other.verified, false);
+  assert.ok(other.reasons.includes("podium-not-confirmed"));
+});
+
 // PDF réels privés (jamais commités).
 const locations = process.env.TKD_PDF_FIXTURES_DIRS ? JSON.parse(process.env.TKD_PDF_FIXTURES_DIRS)
   : [process.env.TKD_PDF_FIXTURES_DIR || "fixtures"];
@@ -133,4 +169,17 @@ test(`real PDF: ${taekoplan} (classement officiel qui révèle un arbre mal lu)`
   assert.equal(matched.filter((m) => m.result).length, 16);
   const men58 = matched[draw.brackets.findIndex((b) => b.category === "Senior · Men · -58 kg")];
   assert.ok(men58.result.issues.some((i) => i.startsWith("3 SOKOLOWSKI Antoni : incohérent")));
+});
+
+const rome = "draw with result format WT.pdf";
+test(`real PDF: ${rome} (GP de Rome : police WT, noms sur deux lignes, 3 divisions vérifiées automatiquement)`, { skip: skip(fixture(rome)) }, async () => {
+  const draw = await read(rome);
+  const matched = results(draw, true);
+  assert.deepEqual(matched.map((m) => m.result?.verified), [true, true, true]);
+  const women57 = draw.brackets[0];
+  const names = (ids) => ids.map((id) => women57.entrants.find((e) => e.athleteId === id)?.name.split(" ")[0]).sort();
+  const places = matched[0].result.places;
+  assert.deepEqual([names(places.gold), names(places.silver), names(places.bronze), names(places.quarter)],
+    [["PACHECO"], ["KIM"], ["BREWSTER", "DEHHAOUI"], ["ABUTALEB", "BLEWITT", "DILLON", "LIN"]]);
+  assert.equal(matched[1].result.places.quarter.length, 4);
 });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { buildTree } from "../../../../src/bracket-tree.ts";
 import { bracketOf, emptyPlaces, PLACES, picksFromPlaces, type Places } from "../../../../src/model.ts";
 import { validatePrediction } from "../../../../src/prediction.ts";
@@ -7,9 +7,20 @@ import { PicksSummary } from "../../components/PicksSummary.tsx";
 import { getCompetition, getDivision, listDivisions, saveResultAndScore } from "../../data.ts";
 import { errorMessage } from "../../format.ts";
 import { tr, translateIssue } from "../../i18n.tsx";
-import { clearImportedResult, loadImportedResult } from "../../importedResults.ts";
+import { clearImportedResult, currentResultsPdf, loadImportedResult } from "../../importedResults.ts";
 import { Link } from "../../router.tsx";
 import { useAsync } from "../../useAsync.ts";
+
+// Aperçu du PDF chargé seulement si besoin (le lecteur PDF ne fait pas partie du code des joueurs).
+const PdfPreview = lazy(() => import("../../control/PdfPreview.tsx").then((m) => ({ default: m.PdfPreview })));
+const REASONS: Record<string, () => string> = {
+  "no-ranking": () => tr("pas de tableau de classement", "no ranking table"),
+  "unmatched-names": () => tr("nom du classement introuvable dans la division", "a ranking name is not in the division"),
+  "podium-incomplete": () => tr("podium incomplet dans le classement", "incomplete podium in the ranking"),
+  "podium-not-confirmed": () => tr("podium non confirmé par les combats", "podium not confirmed by the bouts"),
+  "quarters-missing": () => tr("battus en quart manquants", "missing quarterfinal losers"),
+  "inconsistent": () => tr("place incohérente avec l'arbre", "place inconsistent with the bracket"),
+};
 
 /** Saisie du classement réel en cliquant dans l'arbre, puis calcul des points et des classements. */
 export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
@@ -22,6 +33,8 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
   // Résultat lu dans le PDF des résultats de la journée : prérempli, à vérifier avant d'enregistrer.
   const [imported] = useState(() => loadImportedResult(cid, did));
   const [draft, setDraft] = useState<Places | null>(() => imported?.places ?? null);
+  const pdf = imported?.pages?.length ? currentResultsPdf() : null;
+  const [pane, setPane] = useState<"bracket" | "pdf">("bracket");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -63,13 +76,30 @@ export function AdminResultsPage({ cid, did }: { cid: string; did: string }) {
       <h1>{tr("Résultats", "Results")} · {division.category}</h1>
       <p className="muted small">{tr("Touche chaque athlète classé et donne-lui sa place réelle : son chemin se dessine dans l'arbre.", "Tap each placed athlete and give them their actual place: their path is drawn in the bracket.")}
         {division.result && tr(" Un résultat est déjà enregistré : le modifier recalcule tous les points.", " A result is already saved: editing it recalculates all points.")}</p>
+      {imported && !message && imported.verified && (
+        <p className="notice success">✓ {tr("Vérifié automatiquement : le classement officiel et les vainqueurs des combats concordent, tous les battus en quart sont trouvés. Tu peux enregistrer directement.",
+          "Automatically verified: the official ranking and the bout winners agree, and all quarterfinal losers are found. You can save directly.")}</p>
+      )}
+      {imported && !message && imported.verified === false && (imported.reasons?.length ?? 0) > 0 && (
+        <p className="notice warn">{tr("À vérifier", "To check")} : {imported.reasons!.map((r) => REASONS[r]?.() ?? r).join(" · ")}</p>
+      )}
       {imported && !message && (
         <p className="notice">{tr("Prérempli depuis", "Prefilled from")} <strong>{imported.fileName}</strong>{tr(" : compare avec le PDF, corrige si besoin en touchant les athlètes, puis enregistre.", ": compare with the PDF, correct if needed by tapping the athletes, then save.")}
           {(imported.fromWinners?.length ?? 0) > 0 && tr(` ${imported.fromWinners!.length} place(s) lue(s) grâce aux vainqueurs des combats.`, ` ${imported.fromWinners!.length} place${imported.fromWinners!.length === 1 ? "" : "s"} read from the bout winners.`)}
           {imported.deduced.length > 0 && tr(` ${imported.deduced.length} battu(s) en quart déduit(s) de l'arbre.`, ` ${imported.deduced.length} quarterfinal loser${imported.deduced.length === 1 ? "" : "s"} deduced from the bracket.`)}
           {imported.issues.length > 0 && ` ${tr("Alertes :", "Warnings:")} ${imported.issues.join(" ")}`}</p>
       )}
-      <BracketSheet tree={tree} places={places} onChange={(next) => { setDraft(next); setMessage(null); }} />
+      {pdf && (
+        <div className="segmented full" role="tablist" aria-label={tr("Affichage", "View")}>
+          <button role="tab" aria-selected={pane === "bracket"} className={pane === "bracket" ? "is-active" : ""} onClick={() => setPane("bracket")}>{tr("Arbre", "Bracket")}</button>
+          <button role="tab" aria-selected={pane === "pdf"} className={pane === "pdf" ? "is-active" : ""} onClick={() => setPane("pdf")}>{tr("PDF des résultats", "Results PDF")}</button>
+        </div>
+      )}
+      {pdf && pane === "pdf" ? (
+        <div className="pdf-inline">
+          <Suspense fallback={<p className="muted">{tr("Chargement du PDF…", "Loading the PDF…")}</p>}><PdfPreview file={pdf} pages={imported!.pages!} /></Suspense>
+        </div>
+      ) : <BracketSheet tree={tree} places={places} onChange={(next) => { setDraft(next); setMessage(null); }} />}
       <section>
         <h2>{tr("Classement saisi", "Entered ranking")}</h2>
         <PicksSummary bracket={bracket} places={places} limits={division.expected} emptyLabel={tr("À saisir", "To enter")} />
