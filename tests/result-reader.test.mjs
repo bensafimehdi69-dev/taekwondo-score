@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBrackets } from "../src/bracket-builder.ts";
 import { readDraw } from "../src/read-draw.ts";
-import { divisionResult, matchRankings, pageRankings, parseRankingRow, readRankings, readWinnerMarks } from "../src/result-reader.ts";
+import { divisionResult, fixWtLetterL, matchRankings, pageRankings, parseRankingRow, readRankings, readWinnerMarks } from "../src/result-reader.ts";
 import { draw8 } from "./fixtures-bracket.mjs";
 
 const item = (text, x, y, width = 150) => ({ text, x, y, width, height: 6 });
@@ -121,6 +121,15 @@ test("vérification automatique : classement et combats concordent, quarts compl
   const other = divisionResult(named, { pages: [1], rows: [row(1, "A"), row(2, "F"), row(3, "C"), row(3, "H")] }, marks);
   assert.equal(other.verified, false);
   assert.ok(other.reasons.includes("podium-not-confirmed"));
+});
+
+test("police WT : « cIara » / « EIIa » du livret reconnus face au tirage lu « clara » / « Ella »", () => {
+  assert.deepEqual(["PACHECO Maria cIara", "BREWSTER EIIa", "UZUNCAVDAR SiIa irmak", "IGNACIO Ivan", "KIM Yu-jin"].map(fixWtLetterL),
+    ["PACHECO Maria clara", "BREWSTER Ella", "UZUNCAVDAR Sila irmak", "IGNACIO Ivan", "KIM Yu-jin"]);
+  // Tirage publié avec les bons prénoms, classement du livret avec la confusion l / I : même athlète.
+  const published = { ...named, entrants: named.entrants.map((e, i) => (i === 0 ? { ...e, name: "PACHECO Maria clara", country: "BRA" } : e)) };
+  const result = divisionResult(published, { pages: [1], rows: [{ rank: 1, name: "PACHECO Maria cIara", country: "BRA" }, row(2, "H")] });
+  assert.deepEqual([result.places.gold, result.unmatched], [["A"], []]);
 });
 
 // PDF réels privés (jamais commités).
