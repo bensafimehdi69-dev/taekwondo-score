@@ -9,7 +9,7 @@
 import type { BracketDivision } from "./bracket-builder.ts";
 import { buildTree, chainOf, placesFromState, setPlace, PLAYABLE_LEVEL, type BracketTree, type TreeFight, type TreeNode, type TreeState } from "./bracket-tree.ts";
 import type { Places } from "./model.ts";
-import type { Place } from "./prediction.ts";
+import { expectedPicks, type Place } from "./prediction.ts";
 import { sameAthlete } from "./source-audit.ts";
 import { extractMarkers } from "./team-path-parser.ts";
 import type { ParsedPage, VisualTextItem } from "./types.ts";
@@ -17,7 +17,8 @@ import type { ParsedPage, VisualTextItem } from "./types.ts";
 export type RankingRow = { rank: number; name: string; country?: string };
 export type Ranking = { pages: number[]; rows: RankingRow[] };
 
-const HEADING = /^\s*(?:classification|prize\s+winners)\s*:?\s*$/i;
+// La police des feuilles WT (Woori) rend souvent « l » par « I » : « CIassification ». Le titre tolère cette confusion.
+const HEADING = /^\s*(?:c[lI1|]assification|prize\s+winners)\s*:?\s*$/i;
 const RANK_START = /^\s*([1-8])(?:\s+|$)/;
 
 /** « 1 DE MORAES Giovanni aubin (BRA) », « 1 ALDAOUD Ja'afar , JOR (265) », « 1 JUNG Woo-hyeok KOR ». */
@@ -47,16 +48,20 @@ export function pageRankings(page: ParsedPage): RankingRow[][] {
       const row = rows.find((r) => Math.abs(r[0].y - item.y) <= 3);
       if (row) row.push(item); else rows.push([item]);
     }
-    const parsed: RankingRow[] = [];
+    // Une ligne sans rang juste sous une ligne classée est la suite d'un nom long (« 2 RODRIGUES FERNANDES Henrique » / « marques (BRA) »).
+    const texts: string[] = [];
+    let previousY = -Infinity;
     for (const row of rows) {
       const ordered = row.sort((a, b) => a.x - b.x);
-      if (Math.abs(ordered[0].x - rankX) > 6 || !RANK_START.test(ordered[0].text)) {
-        if (parsed.length) break; // Fin du tableau : la colonne continue avec autre chose (légende, arbre).
-        continue;
-      }
-      const entry = parseRankingRow(ordered.map((item) => item.text).join(" "));
-      if (entry) parsed.push(entry);
+      const text = ordered.map((item) => item.text).join(" ");
+      const ranked = Math.abs(ordered[0].x - rankX) <= 6 && RANK_START.test(ordered[0].text);
+      if (ranked) texts.push(text);
+      else if (texts.length && ordered[0].y - previousY <= 10 && ordered[0].x >= rankX - 4) texts[texts.length - 1] += ` ${text}`;
+      else if (texts.length) break; // Fin du tableau : la colonne continue avec autre chose (légende, arbre).
+      else continue;
+      previousY = ordered[0].y;
     }
+    const parsed = texts.map(parseRankingRow).filter((row): row is RankingRow => !!row);
     if (parsed.length >= 2) tables.push(parsed);
   }
   return tables;
@@ -81,16 +86,42 @@ const WINNER_MARK = /^(.+?\s(?:-?[A-Z][a-z]?[.-]\s?)+)\s*\(([A-Z]{3}|WT)\)\s*$/;
 /** `fight` : numéro du combat imprimé juste à côté du nom (le vainqueur s'écrit collé à la case du combat). */
 export type WinnerMark = { page: number; name: string; country: string; fight?: string };
 
+/**
+ * Nom réimprimé coupé sur deux lignes par la feuille (« UZUNCAVDAR » / « S.I. (TUR) », « DEHHAOUI A. » / « (MAR) ») :
+ * la seconde ligne, alignée juste sous la première, porte le pays ; les deux sont réunies.
+ */
+function joinWrappedMarks(items: VisualTextItem[]): Array<{ text: string; lines: VisualTextItem[] }> {
+  const used = new Set<VisualTextItem>();
+  const joined: Array<{ text: string; lines: VisualTextItem[] }> = [];
+  for (const item of items) {
+    if (used.has(item)) continue;
+    const text = item.text.replace(/\s+/g, " ").trim();
+    if (!WINNER_MARK.test(text) && /^[A-Z][A-Z' -]+(?:\s(?:-?[A-Z][a-z]?[.-]\s?)+)?$/.test(text)) {
+      const next = items.find((other) => other !== item && !used.has(other)
+        && other.y - item.y >= 3 && other.y - item.y <= 10 && Math.abs(other.x - item.x) <= 4
+        && /\((?:[A-Z]{3}|WT)\)\s*$/.test(other.text.trim()) && other.text.trim().length <= 20);
+      if (next && WINNER_MARK.test(`${text} ${next.text.trim()}`)) {
+        used.add(item); used.add(next);
+        joined.push({ text: `${text} ${next.text.trim()}`, lines: [item, next] });
+        continue;
+      }
+    }
+    joined.push({ text, lines: [item] });
+  }
+  return joined;
+}
+
 export function readWinnerMarks(pages: ParsedPage[]): WinnerMark[] {
   return pages.flatMap((page) => {
     const markers = extractMarkers(page);
-    return page.items.flatMap((item) => {
-      const match = item.text.replace(/\s+/g, " ").trim().match(WINNER_MARK);
-      if (!match || RANK_START.test(item.text)) return [];
-      const y = item.y + item.height / 2;
-      // Case du combat sur la même ligne, collée au début (moitié gauche) ou à la fin (moitié droite) du nom.
-      const near = markers.map((m) => ({ m, gap: Math.min(Math.abs(m.x - item.x), Math.abs(m.x - (item.x + item.width))), dy: Math.abs(m.y - y) }))
-        .filter((c) => c.dy <= 8 && c.gap <= 45).sort((a, b) => a.gap + a.dy - (b.gap + b.dy));
+    return joinWrappedMarks(page.items).flatMap(({ text, lines }) => {
+      const match = text.match(WINNER_MARK);
+      if (!match || RANK_START.test(text)) return [];
+      // Case du combat sur la même ligne (l'une des lignes du nom), collée au début (moitié gauche) ou à la fin (moitié droite).
+      const near = markers.flatMap((m) => lines.map((item) => ({ m,
+        gap: Math.min(Math.abs(m.x - item.x), Math.abs(m.x - (item.x + item.width))), dy: Math.abs(m.y - (item.y + item.height / 2)) })))
+        .filter((c) => c.dy <= 8 && c.gap <= 45).sort((a, b) => a.gap + a.dy - (b.gap + b.dy))
+        .filter((c, i, all) => all.findIndex((o) => o.m === c.m) === i);
       const fight = near.length && (near.length === 1 || near[1].gap + near[1].dy - (near[0].gap + near[0].dy) > 6) ? near[0].m.code : undefined;
       return [{ page: page.pageNumber, name: match[1].trim(), country: match[2], ...(fight ? { fight } : {}) }];
     });
@@ -152,6 +183,17 @@ export function winnersFromMarks(division: BracketDivision, tree: BracketTree, m
 
 const PLACE_OF_RANK: Record<number, Place | undefined> = { 1: "gold", 2: "silver", 3: "bronze", 5: "quarter" };
 
+/**
+ * Pourquoi un résultat n'est pas vérifié automatiquement (codes traduits par l'interface) :
+ * no-ranking : pas de tableau de classement, donc pas de seconde lecture ;
+ * unmatched-names : un nom du classement ne correspond à aucun athlète de la division ;
+ * podium-incomplete : le classement ne donne pas 1er, 2e et tous les 3es ;
+ * podium-not-confirmed : les vainqueurs des combats ne confirment pas les finalistes et les 3es du classement ;
+ * quarters-missing : des battus en quart restent inconnus ;
+ * inconsistent : une place lue contredit l'arbre.
+ */
+export type ResultReason = "no-ranking" | "unmatched-names" | "podium-incomplete" | "podium-not-confirmed" | "quarters-missing" | "inconsistent";
+
 export type DivisionResult = {
   /** Places lues puis complétées ; toujours cohérentes avec l'arbre. */
   places: Places;
@@ -163,6 +205,13 @@ export type DivisionResult = {
   /** Lignes du classement sans athlète correspondant dans la division. */
   unmatched: RankingRow[];
   issues: string[];
+  /**
+   * Vérification automatique : le classement officiel et les vainqueurs des combats (deux lectures indépendantes de la
+   * feuille) donnent les mêmes finalistes et les mêmes 3es, tous les battus en quart sont connus, rien n'est incohérent.
+   * Un résultat vérifié peut être enregistré sans contrôle manuel ; sinon `reasons` dit quoi regarder.
+   */
+  verified: boolean;
+  reasons: ResultReason[];
 };
 
 const findFight = (node: TreeNode, id: string): TreeFight | undefined => {
@@ -206,6 +255,7 @@ export function divisionResult(division: BracketDivision, ranking: Ranking | nul
     if (!place) continue;
     apply(entrant.athleteId, place, `${row.rank} ${row.name}`);
   }
+  const fromRanking: Places = { gold: [...places.gold], silver: [...places.silver], bronze: [...places.bronze], quarter: [...places.quarter] };
   // Étape 2 : places issues des vainqueurs des combats, pour ce que le classement ne donne pas.
   const winners = winnersFromMarks(division, tree, marks);
   const fromWinners: string[] = [];
@@ -227,7 +277,23 @@ export function divisionResult(division: BracketDivision, ranking: Ranking | nul
   }
   if (unmatched.length) issues.push(`${unmatched.length} nom(s) du classement introuvable(s) dans la division : ${unmatched.map((r) => `${r.rank} ${r.name}`).join(", ")}.`);
   const pages = [...new Set([...(ranking?.pages ?? []), ...winners.pages])].sort((a, b) => a - b);
-  return { places, deduced, fromWinners, pages, unmatched, issues };
+
+  // Vérification croisée : finalistes (vainqueurs des demies) et 3es lus dans les combats = ceux du classement.
+  const expected = expectedPicks(division);
+  const same = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+  const semis = tree.final.children.filter((child): child is TreeFight => child.kind === "fight");
+  const finalists = semis.map((semi) => winners.state[semi.id]).filter((id): id is string => !!id);
+  const confirmed = semis.length === 2
+    ? finalists.length === 2 && same(finalists, [...fromRanking.gold, ...fromRanking.silver]) && same(read.bronze, fromRanking.bronze)
+    : same(read.gold, fromRanking.gold) && same(read.silver, fromRanking.silver);
+  const reasons: ResultReason[] = [];
+  if (!ranking) reasons.push("no-ranking");
+  if (unmatched.length) reasons.push("unmatched-names");
+  if (ranking && (fromRanking.gold.length !== expected.gold || fromRanking.silver.length !== expected.silver || fromRanking.bronze.length !== expected.bronze)) reasons.push("podium-incomplete");
+  if (ranking && !confirmed) reasons.push("podium-not-confirmed");
+  if (places.quarter.length < expected.quarter) reasons.push("quarters-missing");
+  if (issues.length) reasons.push("inconsistent");
+  return { places, deduced, fromWinners, pages, unmatched, issues, verified: reasons.length === 0, reasons };
 }
 
 /**

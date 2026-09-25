@@ -2,7 +2,17 @@
 // puis repris par la page de saisie des résultats de la division. Rien n'est enregistré en ligne avant sa validation.
 import type { Places } from "../../src/model.ts";
 
-export type ImportedResult = { places: Places; fileName: string; deduced: string[]; fromWinners?: string[]; issues: string[] };
+export type ImportedResult = {
+  places: Places; fileName: string; deduced: string[]; fromWinners?: string[]; issues: string[];
+  /** Vérifié automatiquement (classement et combats concordent) ; pages de la division dans le PDF. */
+  verified?: boolean; reasons?: string[]; pages?: number[];
+};
+
+// Le PDF des résultats reste en mémoire le temps de la session (navigation dans l'app, sans rechargement) :
+// la page de saisie peut l'afficher à côté de l'arbre. Il n'est jamais envoyé en ligne.
+let resultsPdf: File | null = null;
+export const rememberResultsPdf = (file: File) => { resultsPdf = file; };
+export const currentResultsPdf = () => resultsPdf;
 
 const key = (cid: string, did: string) => `tkd:resultat-lu:${cid}:${did}`;
 
